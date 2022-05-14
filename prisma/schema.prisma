@@ -32,3 +32,54 @@ model Config {
 
     @@map("config")
 }
+
+model Event {
+    id          Int      @id @db.UnsignedInt
+    description String?  @db.VarChar(255)
+    supps       Int
+    dds         Int
+    free        Int
+    date        DateTime
+    name        String
+    creatorId   Int      @map("creator_id")
+    partys      Party[]
+
+    @@map("event")
+}
+
+model Party {
+    id           Int           @id @db.UnsignedInt
+    description  String?       @db.VarChar(255)
+    Event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    eventId      Int           @map("event_id") @db.UnsignedInt
+    partyMembers PartyMember[]
+
+    @@map("party")
+}
+
+model PartyMember {
+    uid      String @id @default(uuid()) @db.Char(36)
+    userId   Int    @map("user_id")
+    charNo   Int    @map("char_no") @db.TinyInt
+    memberNo Int    @map("member_no") @db.TinyInt
+    class    Class  @relation(fields: [classUid], references: [uid])
+    classUid String @map("class_uid") @db.Char(36)
+    Party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+    partyId  Int    @map("party_id") @db.UnsignedInt
+
+    @@unique([memberNo])
+    @@unique([userId, partyId])
+}
+
+model Class {
+    uid          String        @id @default(uuid()) @db.Char(36)
+    name         String        @unique
+    icon         String        @unique
+    role         Role
+    partyMembers PartyMember[]
+}
+
+enum Role {
+    DD
+    SUPP
+}
