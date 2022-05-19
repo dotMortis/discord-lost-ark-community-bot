@@ -14,10 +14,17 @@ import {
 import { staticConfig } from '../config/static-config';
 import { prismaClient } from '../db/prisma-client';
 import { GetConfig, SetConfig } from '../models/config.model';
+import { MemberEventFactory } from '../models/member-event-factory';
 import { COMMAND_COMMAND } from './deault-commands/command.command';
 import { getEmbedCalendar } from './embeds/calendar.embed';
 
 export type TCalCommand = {
+    desc: [string, string][];
+    command: string;
+    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
+};
+
+export type TMemberEventCommand = {
     desc: [string, string][];
     command: string;
     callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
@@ -107,8 +114,13 @@ export type TEventAlert = {
 
 export class Discord {
     private _guildId: string;
-    private _prefix = '!dot';
+    private readonly _prefix = '!dot';
     private _bot: Client;
+    private readonly _memberEventFactory: MemberEventFactory;
+
+    get memberEventFactory(): MemberEventFactory {
+        return this._memberEventFactory;
+    }
 
     get commandsDesc(): [string, string][] {
         const commands = new Array<[string, string]>();
@@ -199,7 +211,13 @@ export class Discord {
         return this._refCleanChannelIds;
     }
 
+    private _memberEvents: Map<string, TMemberEventCommand>;
+    get memberEvents(): Map<string, TMemberEventCommand> {
+        return this._memberEvents;
+    }
+
     constructor() {
+        this._memberEventFactory = new MemberEventFactory(this);
         this._calData = {
             commands: new Map<string, TCalCommand>(),
             channelId: '',
@@ -230,6 +248,7 @@ export class Discord {
             };
             eventAlert: TEventAlert;
         }>();
+        this._memberEvents = new Map<string, TMemberEventCommand>();
         this._defaultCommands = new Map<string, TDefaultCommand>();
         this._bot = new Client({
             intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS']
@@ -242,7 +261,8 @@ export class Discord {
         routines: Array<TRoutine>,
         reactions: Array<TReaction>,
         alerts: Array<TAlert>,
-        eventAlerts: Array<TEventAlert>
+        eventAlerts: Array<TEventAlert>,
+        memberEvents: Array<TMemberEventCommand>
     ) {
         this._bot.on('debug', (msg: string) => {
             logger.debug(msg);
@@ -258,7 +278,7 @@ export class Discord {
 
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first().id;
-        this._initCommands(defaultCommands, calCommands);
+        this._initCommands(defaultCommands, calCommands, memberEvents);
         await this._initChannels();
         await this._initReactions(reactions);
         await this._initAlerts(alerts);
@@ -276,13 +296,17 @@ export class Discord {
 
     private _initCommands(
         defaultCommands: Array<TDefaultCommand>,
-        calCommands: Array<TCalCommand>
+        calCommands: Array<TCalCommand>,
+        memberEventCommands: Array<TMemberEventCommand>
     ): void {
         for (const command of defaultCommands) {
             this._defaultCommands.set(command.command, command);
         }
         for (const command of calCommands) {
             this._calData.commands.set(command.command, command);
+        }
+        for (const command of memberEventCommands) {
+            this._memberEvents.set(command.command, command);
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
             try {
@@ -308,7 +332,14 @@ export class Discord {
                 }
                 if (!msg.content.trimStart().startsWith('!') || msg.author.id === this._bot.user.id)
                     return;
-                else if (!msg.content.trimStart().startsWith(this._prefix)) {
+                else if (msg.content.trimStart().startsWith('!event')) {
+                    msg.content = msg.content.replace(/\ \ +/g, ' ').trim();
+                    const args = msg.content.split(' ');
+                    const command = this.memberEvents.get(args[1]);
+                    if (command) {
+                        await command.callback(msg, args, this);
+                    }
+                } else if (!msg.content.trimStart().startsWith(this._prefix)) {
                     const args = msg.content.split(' ');
                     let [command] = args;
                     if ((command = command?.slice(1))) {

@@ -15,6 +15,7 @@ import {
 import { Discord } from './discord/discord.model';
 import { GIFT_EVENT_ALERT } from './discord/event-alerts/gift.event-alert';
 import { SERIA_EVENT_ALERT } from './discord/event-alerts/seria.event-alert';
+import { ADD_MEMBER_EVENT } from './discord/member-event-commands/create-event';
 import { ALERT_REACTION } from './discord/reactions/alert.reaction';
 import { ITEMLEVEL_REACTION } from './discord/reactions/itemlevel.reaction';
 import { WELCOME_REACTION } from './discord/reactions/welcome.reaction';
@@ -36,7 +37,8 @@ export class Server {
             [UPDATE_CALENDAR_ROUTINE, CLEAN_UP_ROUTINE, COMMANDS_CLEAN_UP_ROUTINE],
             [WELCOME_REACTION, ALERT_REACTION, ITEMLEVEL_REACTION],
             [ADVENTURE_ALERT],
-            [SERIA_EVENT_ALERT, GIFT_EVENT_ALERT]
+            [SERIA_EVENT_ALERT, GIFT_EVENT_ALERT],
+            [ADD_MEMBER_EVENT]
         );
     }
 }

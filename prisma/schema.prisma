@@ -34,24 +34,27 @@ model Config {
 }
 
 model Event {
-    id          Int      @id @db.UnsignedInt
-    description String?  @db.VarChar(255)
+    id          Int     @id @default(autoincrement()) @db.UnsignedInt
+    description String? @db.VarChar(255)
+    channelId   String  @db.VarChar(255)
+    messageId   String? @db.VarChar(255)
     supps       Int
     dds         Int
     free        Int
-    date        DateTime
     name        String
-    creatorId   Int      @map("creator_id")
+    creatorId   String  @map("creator_id")
     partys      Party[]
 
     @@map("event")
 }
 
 model Party {
-    id           Int           @id @db.UnsignedInt
+    id           Int           @id @default(autoincrement()) @db.UnsignedInt
     description  String?       @db.VarChar(255)
+    isDone       Boolean       @default(false)
     Event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
     eventId      Int           @map("event_id") @db.UnsignedInt
+    createdAt    DateTime      @default(now()) @map("crated_at")
     partyMembers PartyMember[]
 
     @@map("party")
@@ -59,12 +62,12 @@ model Party {
 
 model PartyMember {
     uid      String @id @default(uuid()) @db.Char(36)
-    userId   Int    @map("user_id")
+    userId   String @map("user_id")
     charNo   Int    @map("char_no") @db.TinyInt
     memberNo Int    @map("member_no") @db.TinyInt
     class    Class  @relation(fields: [classUid], references: [uid])
     classUid String @map("class_uid") @db.Char(36)
-    Party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+    party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
     partyId  Int    @map("party_id") @db.UnsignedInt
 
     @@unique([memberNo])
