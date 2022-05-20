@@ -251,7 +251,12 @@ export class Discord {
         this._memberEvents = new Map<string, TMemberEventCommand>();
         this._defaultCommands = new Map<string, TDefaultCommand>();
         this._bot = new Client({
-            intents: ['GUILDS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS']
+            intents: [
+                'GUILDS',
+                'GUILD_MESSAGES',
+                'GUILD_MESSAGE_REACTIONS',
+                'DIRECT_MESSAGE_REACTIONS'
+            ]
         });
     }
 
@@ -285,7 +290,7 @@ export class Discord {
         await this._initEventAlerts(eventAlerts);
         await this._initDefaultRole();
         this._routines(routines).catch(e => logger.error(e));
-        this.commandsDesc;
+        await this._memberEventFactory.init();
     }
 
     public async updateCalendar(): Promise<void> {
@@ -676,12 +681,12 @@ export class Discord {
             try {
                 logger.debug('Running routine.');
                 await Promise.allSettled(routines.map(r => r(this)));
-
+            } catch (e) {
+                logger.error(e);
+            } finally {
                 await new Promise<void>(res => {
                     setTimeout(_ => res(), 30 * 1000);
                 });
-            } catch (e) {
-                logger.error(e);
             }
         }
     }

@@ -1,32 +1,54 @@
 import { logger } from '@bits_devel/logger';
 import { Class, Event, Party, PartyMember, Role } from '@prisma/client';
+import { path as rootPath } from 'app-root-path';
 import { TextChannel } from 'discord.js';
 import EventEmitter from 'events';
+import path from 'path';
 import { prismaClient } from '../db/prisma-client';
 import { Discord } from '../discord/discord.model';
 
 export type TMemberEvent = 'UPDATE';
 
-export enum ECharNumberIcon {
-    ':one:' = 'asd',
-    ':two:' = 'asd',
-    ':three:' = 'asd',
-    ':four:' = 'asd',
-    ':five:' = 'asd',
-    ':six:' = 'asd'
-}
+export const NUMERIC_EMOTES = {
+    one: {
+        unicode: '1️⃣',
+        hex: '31efb88fe283a3'
+    },
+    two: {
+        unicode: '2️⃣',
+        hex: '32efb88fe283a3'
+    },
+    three: {
+        unicode: '3️⃣',
+        hex: '33efb88fe283a3'
+    },
+    four: {
+        unicode: '4️⃣',
+        hex: '34efb88fe283a3'
+    },
+    five: {
+        unicode: '5️⃣',
+        hex: '35efb88fe283a3'
+    },
+    six: {
+        unicode: '6️⃣',
+        hex: '36efb88fe283a3'
+    }
+};
 
 export class MemberEventFactory extends EventEmitter {
     private _runAgain: boolean;
     private _isRunning: boolean;
     private _updateEventIds: Array<number>;
     private readonly _eventIdReg: RegExp;
+    private readonly _joinEventReg: RegExp;
     private readonly _discord: Discord;
 
     constructor(discord: Discord) {
         super();
         this._isRunning = false;
-        this._eventIdReg = new RegExp(/E-ID: +(?<id>[0-9]+)/);
+        this._eventIdReg = new RegExp(/E-ID:( +|\t)(?<id>[0-9]+)/);
+        this._joinEventReg = new RegExp(/E-ID:( +|\t)(?<id>1)\nChar-Nummer:(.+|\t)(?<char>[0-9]+)/);
         this._updateEventIds = new Array<number>();
         this._discord = discord;
         this.on('UPDATE', async (eventId: number) => {
@@ -37,28 +59,6 @@ export class MemberEventFactory extends EventEmitter {
                 logger.error(error);
             }
         });
-        this._discord.bot.on('messageReactionAdd', async (reaction, user) => {
-            console.log(Buffer.from(reaction.emoji.name).toString('hex'));
-
-            if (user.id === this._discord.bot.user.id) return;
-            const charNumber = this._iconToNumber(Buffer.from(reaction.emoji.name).toString('hex'));
-            if (charNumber != null) {
-                const regResult = reaction.message.content.match(this._eventIdReg);
-                if (regResult) {
-                    await user.send('Test add');
-                }
-            }
-        });
-        this._discord.bot.on('messageReactionRemove', async (reaction, user) => {
-            if (user.id === this._discord.bot.user.id) return;
-            const charNumber = this._iconToNumber(Buffer.from(reaction.emoji.name).toString('hex'));
-            if (charNumber != null) {
-                const regResult = reaction.message.content.match(this._eventIdReg);
-                if (regResult) {
-                    await user.send('Test remove');
-                }
-            }
-        });
     }
 
     public emit(eventName: TMemberEvent, eventId: number): boolean {
@@ -67,6 +67,75 @@ export class MemberEventFactory extends EventEmitter {
 
     public on(eventName: TMemberEvent, cb: (eventId: number) => void) {
         return super.on(eventName, cb);
+    }
+
+    public async init(): Promise<void> {
+        await this._initClassIcons();
+        await this._fetchAllMessages();
+        this._discord.bot.on('messageReactionAdd', async (reaction, user) => {
+            try {
+                if (user.id === this._discord.bot.user.id) return;
+                if (reaction.message.guildId) {
+                    const iconHex = Buffer.from(reaction.emoji.name).toString('hex');
+                    console.log(iconHex);
+                    const charNumber = this._iconToNumber(iconHex);
+                    console.log(charNumber);
+                    if (charNumber != null) {
+                        const regResult = reaction.message.content.match(this._eventIdReg);
+                        console.log(regResult);
+
+                        if (regResult?.groups?.id) {
+                            const event = await this._getEventFromId(Number(regResult.groups.id));
+                            const newMessage = await user.send(
+                                `${event.name}\nE-ID:\t${
+                                    event.id
+                                }\nChar-Nummer:\t${this._iconToNumber(
+                                    iconHex
+                                )}\nBitte reagieren mit der Klasse, welche hinzugefügt werden soll.`
+                            );
+                            const classes = await prismaClient.class.findMany();
+                            const reactPromise = Promise.all(
+                                classes.map(laClass => newMessage.react(laClass.iconId))
+                            );
+                            await reactPromise;
+                        }
+                    }
+                } else {
+                    const regResult = reaction.message.content.match(this._joinEventReg);
+                    if (regResult) {
+                        const { id: eventId, char: charNumber } = regResult.groups;
+                        await this.addMember(
+                            Number(eventId),
+                            reaction.emoji.name,
+                            Number(charNumber),
+                            user.id
+                        );
+                    }
+                }
+            } catch (e) {
+                logger.error(e);
+            } finally {
+                if (user.id !== this._discord.bot.user.id && !reaction.message.guildId)
+                    await reaction.message.delete();
+            }
+        });
+        this._discord.bot.on('messageReactionRemove', async (reaction, user) => {
+            try {
+                if (user.id === this._discord.bot.user.id) return;
+                const charNumber = this._iconToNumber(
+                    Buffer.from(reaction.emoji.name).toString('hex')
+                );
+                if (charNumber != null) {
+                    const regResult = reaction.message.content.match(this._eventIdReg);
+                    if (regResult) {
+                        await user.send('Test remove');
+                    }
+                }
+            } catch (e) {
+                logger.error(e);
+            }
+        });
+        await this.updateAllEvents();
     }
 
     public async createEvent(
@@ -151,7 +220,18 @@ export class MemberEventFactory extends EventEmitter {
             const currRoleCount = party.partyMembers.filter(
                 member => member.class.role === laClass.role
             ).length;
-            if (party.partyMembers.length < maxMembers && currRoleCount < maxRoleCount) {
+            const isUserInParty =
+                party.partyMembers.findIndex(member => {
+                    console.log(member.userId, userId);
+
+                    return member.userId === userId;
+                }) > -1;
+            console.log(isUserInParty);
+            if (
+                !isUserInParty &&
+                party.partyMembers.length < maxMembers &&
+                currRoleCount < maxRoleCount
+            ) {
                 await this._addMemberToParty(party, laClass, charNumber, userId);
                 isAdded = true;
                 break;
@@ -261,6 +341,13 @@ export class MemberEventFactory extends EventEmitter {
         }
     }
 
+    public async updateAllEvents(): Promise<void> {
+        const events = await prismaClient.event.findMany();
+        for (const event of events) {
+            this.emit('UPDATE', event.id);
+        }
+    }
+
     private async _updateEvents() {
         if (this._isRunning) {
             this._runAgain = this._isRunning;
@@ -289,6 +376,9 @@ export class MemberEventFactory extends EventEmitter {
                         partyMembers: {
                             include: {
                                 class: true
+                            },
+                            orderBy: {
+                                memberNo: 'asc'
                             }
                         }
                     },
@@ -300,8 +390,13 @@ export class MemberEventFactory extends EventEmitter {
         });
 
         let msg = `${event.name}\nE-ID:\t${event.id}`;
-        for (let z = 1; z <= event.partys.length; z++) {
-            msg += `\nGroup ${z}:`;
+        for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
+            const party = event.partys[partyIndex - 1];
+            msg += `\nGroup ${partyIndex}:`;
+            for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
+                const member = party.partyMembers[memberIndex - 1];
+                msg += `\n\t${member.memberNo} <:${member.class.icon}:${member.class.iconId}> <@${member.userId}>`;
+            }
         }
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
@@ -317,18 +412,10 @@ export class MemberEventFactory extends EventEmitter {
                         messageId: newMessage.id
                     }
                 });
-                //@ts-ignore
-                await newMessage.react(ECharNumberIcon[ECharNumberIcon[':one:']]);
-                //@ts-ignore
-                await newMessage.react(ECharNumberIcon[ECharNumberIcon[':two:']]);
-                //@ts-ignore
-                await newMessage.react(ECharNumberIcon[ECharNumberIcon[':three:']]);
-                //@ts-ignore
-                await newMessage.react(ECharNumberIcon[ECharNumberIcon[':four:']]);
-                //@ts-ignore
-                await newMessage.react(ECharNumberIcon[ECharNumberIcon[':five:']]);
-                //@ts-ignore
-                await newMessage.react(ECharNumberIcon[ECharNumberIcon[':six:']]);
+                for (const emote of Object.values(NUMERIC_EMOTES)) {
+                    console.log(emote);
+                    await newMessage.react(emote.unicode);
+                }
             }
         } else {
             const newMessage = await channel.send(msg);
@@ -340,18 +427,10 @@ export class MemberEventFactory extends EventEmitter {
                     messageId: newMessage.id
                 }
             });
-            //@ts-ignore
-            await newMessage.react(ECharNumberIcon[ECharNumberIcon[':one:']]);
-            //@ts-ignore
-            await newMessage.react(ECharNumberIcon[ECharNumberIcon[':two:']]);
-            //@ts-ignore
-            await newMessage.react(ECharNumberIcon[ECharNumberIcon[':three:']]);
-            //@ts-ignore
-            await newMessage.react(ECharNumberIcon[ECharNumberIcon[':four:']]);
-            //@ts-ignore
-            await newMessage.react(ECharNumberIcon[ECharNumberIcon[':five:']]);
-            //@ts-ignore
-            await newMessage.react(ECharNumberIcon[ECharNumberIcon[':six:']]);
+            for (const emote of Object.values(NUMERIC_EMOTES)) {
+                console.log(emote);
+                await newMessage.react(emote.unicode);
+            }
         }
     }
 
@@ -413,6 +492,14 @@ export class MemberEventFactory extends EventEmitter {
             if (partyMember.memberNo !== memberNo) break;
             memberNo++;
         }
+        console.log({
+            charNo: charNumber,
+            memberNo,
+            userId,
+            classUid: laClass.uid,
+            partyId: party.id
+        });
+
         await prismaClient.partyMember.create({
             data: {
                 charNo: charNumber,
@@ -457,20 +544,65 @@ export class MemberEventFactory extends EventEmitter {
 
     private _iconToNumber(reactCharNumberIcon: string): number | null {
         switch (reactCharNumberIcon) {
-            case ECharNumberIcon[':one:']:
+            case NUMERIC_EMOTES.one.hex:
                 return 1;
-            case ECharNumberIcon[':two:']:
+            case NUMERIC_EMOTES.two.hex:
                 return 2;
-            case ECharNumberIcon[':three:']:
+            case NUMERIC_EMOTES.three.hex:
                 return 3;
-            case ECharNumberIcon[':four:']:
+            case NUMERIC_EMOTES.four.hex:
                 return 4;
-            case ECharNumberIcon[':five:']:
+            case NUMERIC_EMOTES.five.hex:
                 return 5;
-            case ECharNumberIcon[':six:']:
+            case NUMERIC_EMOTES.six.hex:
                 return 6;
             default:
                 return null;
+        }
+    }
+
+    private async _initClassIcons(): Promise<void> {
+        const emojis = await this._discord.guild.emojis.fetch();
+        const classes = await prismaClient.class.findMany();
+        for (const laClass of classes) {
+            const name = laClass.icon.toLocaleLowerCase();
+            let emoji = emojis.find(emoji => emoji.name === name);
+            if (!emoji) {
+                emoji = await this._discord.guild.emojis.create(
+                    path.resolve(
+                        rootPath,
+                        'assets',
+                        'images',
+                        'class-icons',
+                        `${laClass.name.toLocaleLowerCase()}.png`
+                    ),
+                    name
+                );
+            }
+            if (emoji.id !== laClass.iconId) {
+                await prismaClient.class.update({
+                    where: {
+                        uid: laClass.uid
+                    },
+                    data: {
+                        iconId: emoji.id
+                    }
+                });
+            }
+        }
+    }
+
+    private async _fetchAllMessages(): Promise<void> {
+        const channelIds = await prismaClient.event.findMany({
+            distinct: 'channelId',
+            select: {
+                channelId: true
+            }
+        });
+        for (const event of channelIds) {
+            const channels = await this._discord.guild.channels.fetch();
+            const channel = <TextChannel>channels.get(event.channelId);
+            if (channel) await channel.messages.fetch();
         }
     }
 }

@@ -70,16 +70,21 @@ model PartyMember {
     party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
     partyId  Int    @map("party_id") @db.UnsignedInt
 
-    @@unique([memberNo])
+
+    @@unique([memberNo, partyId])
     @@unique([userId, partyId])
+    @@map("party_member")
 }
 
 model Class {
     uid          String        @id @default(uuid()) @db.Char(36)
     name         String        @unique
     icon         String        @unique
+    iconId       String?       @unique @map("icon_id")
     role         Role
     partyMembers PartyMember[]
+
+    @@map("class")
 }
 
 enum Role {
