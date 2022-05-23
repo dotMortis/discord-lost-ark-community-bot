@@ -46,13 +46,18 @@ export const ADVENTURE_ALERT: TAlert = {
     role: '_ADVENTURE',
     desc: [['!dot assign ADVENTURE', 'Setzt den aktiven Channel für die Abenteuerinsel Alerts']],
     callback: async function (
-        alertData: { channelId: string; role: { name: string; id: string }; alert: TAlert },
+        alertData: {
+            channelId: string | undefined;
+            role: { name: string; id: string };
+            alert: TAlert;
+        },
         discord: Discord
     ): Promise<void> {
+        if (alertData.channelId == null) return;
         const currentDate = new Date();
         const adventureTimes = timeMapping.get(currentDate.getDay() || 7);
         const lastMsgTS = Number((await GetConfig(lastMsgIdent)) || 0);
-        for (const h of adventureTimes) {
+        for (const h of adventureTimes || []) {
             const adventureTime = new Date();
             adventureTime.setUTCHours(h, 0, 0, 0);
             const diff = adventureTime.getTime() - currentDate.getTime();

@@ -33,7 +33,7 @@ export type TMemberEventCommand = {
 export type TDefaultCommand = {
     command: string;
     minLength: number;
-    permission: PermissionResolvable;
+    permission: PermissionResolvable | null;
     desc: [string, string][];
     callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
 };
@@ -50,8 +50,8 @@ export type TReaction = {
         reaction: MessageReaction | PartialMessageReaction,
         reactionHex: string,
         reactionData: {
-            channelId: string;
-            messageId: string;
+            channelId: string | undefined;
+            messageId: string | undefined;
             roles: Map<string, string>;
             reaction: TReaction;
         },
@@ -62,8 +62,8 @@ export type TReaction = {
         reaction: MessageReaction | PartialMessageReaction,
         reactionHex: string,
         reactionData: {
-            channelId: string;
-            messageId: string;
+            channelId: string | undefined;
+            messageId: string | undefined;
             roles: Map<string, string>;
             reaction: TReaction;
         },
@@ -79,7 +79,7 @@ export type TAlert = {
     role: string;
     callback: (
         alertData: {
-            channelId: string;
+            channelId: string | undefined;
             role: {
                 name: string;
                 id: string;
@@ -99,8 +99,8 @@ export type TEventAlert = {
     callback: (
         message: Message<boolean>,
         eventAlertData: {
-            channelAlertId: string;
-            channelEventId: string;
+            channelAlertId: string | undefined;
+            channelEventId: string | undefined;
             role: {
                 name: string;
                 id: string;
@@ -144,15 +144,17 @@ export class Discord {
         return this._bot;
     }
     get guild(): Guild {
-        return this._bot.guilds.cache.get(this._guildId);
+        const guild = this._bot.guilds.cache.get(this._guildId);
+        if (!guild) throw new Error('Guild not found');
+        return guild;
     }
 
     private _calData: {
         role: '_LAB_CAL';
         commands: Map<string, TCalCommand>;
-        channelId: string;
+        channelId: string | undefined;
         roleId: string;
-        messageId: string;
+        messageId: string | undefined;
     };
     get calData() {
         return this._calData;
@@ -161,8 +163,8 @@ export class Discord {
     private _defaultCommands: Map<string, TDefaultCommand>;
 
     private _reactions: Array<{
-        channelId: string;
-        messageId: string;
+        channelId: string | undefined;
+        messageId: string | undefined;
         roles: Map<string, string>;
         reaction: TReaction;
     }>;
@@ -171,7 +173,7 @@ export class Discord {
     }
 
     private _alerts: Array<{
-        channelId: string;
+        channelId: string | undefined;
         role: {
             name: string;
             id: string;
@@ -183,8 +185,8 @@ export class Discord {
     }
 
     private _eventAlerts: Array<{
-        channelAlertId: string;
-        channelEventId: string;
+        channelAlertId: string | undefined;
+        channelEventId: string | undefined;
         role: {
             name: string;
             id: string;
@@ -195,11 +197,11 @@ export class Discord {
         return this._eventAlerts.slice();
     }
 
-    private _commandsChannelId: string;
-    set commandsChannelId(val: string) {
+    private _commandsChannelId: string | undefined;
+    set commandsChannelId(val: string | undefined) {
         this._commandsChannelId = val;
     }
-    get commandsChannelId(): string {
+    get commandsChannelId(): string | undefined {
         return this._commandsChannelId;
     }
 
@@ -276,13 +278,13 @@ export class Discord {
             this._bot.on('ready', (client: Client<true>) => {
                 logger.debug('Connected');
                 logger.debug('Logged in as: ');
-                logger.debug(this._bot.user.tag + ' - (' + this._bot.user.id + ')');
+                logger.debug(this._bot.user?.tag + ' - (' + this._bot.user?.id + ')');
                 res();
             });
         });
 
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
-        this._guildId = (await this._bot.guilds.fetch()).first().id;
+        this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         this._initCommands(defaultCommands, calCommands, memberEvents);
         await this._initChannels();
         await this._initReactions(reactions);
@@ -294,9 +296,12 @@ export class Discord {
     }
 
     public async updateCalendar(): Promise<void> {
+        if (this._calData.channelId == null || this._calData.messageId == null) return;
         const channel = <TextChannel>this.guild.channels.cache.get(this._calData.channelId);
-        const message = channel.messages.cache.get(this._calData.messageId);
-        await message.edit({ embeds: [await getEmbedCalendar()] });
+        if (channel) {
+            const message = channel.messages.cache.get(this._calData.messageId);
+            if (message) await message.edit({ embeds: [await getEmbedCalendar()] });
+        }
     }
 
     private _initCommands(
@@ -324,18 +329,25 @@ export class Discord {
                 if (eventAlertDatas.length) {
                     await Promise.allSettled(
                         eventAlertDatas.map(eventAlertData =>
-                            eventAlertData.eventAlert.callback(
-                                msg,
-                                eventAlertData,
-                                this,
-                                <TextChannel>(
-                                    this.guild.channels.cache.get(eventAlertData.channelAlertId)
-                                )
-                            )
+                            eventAlertData.channelAlertId != null
+                                ? eventAlertData.eventAlert.callback(
+                                      msg,
+                                      eventAlertData,
+                                      this,
+                                      <TextChannel>(
+                                          this.guild.channels.cache.get(
+                                              eventAlertData.channelAlertId
+                                          )
+                                      )
+                                  )
+                                : undefined
                         )
                     ).catch(e => logger.error(e));
                 }
-                if (!msg.content.trimStart().startsWith('!') || msg.author.id === this._bot.user.id)
+                if (
+                    !msg.content.trimStart().startsWith('!') ||
+                    msg.author.id === this._bot.user?.id
+                )
                     return;
                 else if (msg.content.trimStart().startsWith('!event')) {
                     msg.content = msg.content.replace(/\ \ +/g, ' ').trim();
@@ -387,6 +399,7 @@ export class Discord {
                         const command = this._defaultCommands.get(args[1]);
                         if (
                             command &&
+                            msg.member &&
                             this._hasPermissions(msg.member, command) &&
                             args.length >= command.minLength &&
                             command.command === args[1]
@@ -490,7 +503,7 @@ export class Discord {
                     reactionData.channelId === reaction.message.channelId &&
                     reactionData.messageId === reaction.message.id
             );
-            if (reactionData) {
+            if (reactionData && reaction.emoji.name) {
                 await reactionData.reaction.addCallback(
                     reaction,
                     Buffer.from(reaction.emoji.name).toString('hex'),
@@ -506,7 +519,7 @@ export class Discord {
                     reactionData.channelId === reaction.message.channelId &&
                     reactionData.messageId === reaction.message.id
             );
-            if (reactionData) {
+            if (reactionData && reaction.emoji.name) {
                 await reactionData.reaction.removeCallback(
                     reaction,
                     Buffer.from(reaction.emoji.name).toString('hex'),
@@ -692,7 +705,7 @@ export class Discord {
     }
 
     //#region custom commands
-    public async getCustomCommand(command: string): Promise<string | undefined> {
+    public async getCustomCommand(command: string): Promise<string | undefined | null> {
         const key = `CUSTOM_COM_${command}`;
         const result = await prismaClient.config.findFirst({
             where: {

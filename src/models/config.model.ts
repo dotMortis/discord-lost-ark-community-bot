@@ -9,7 +9,7 @@ export const GetConfig = async (key: string): Promise<string | undefined> => {
             value: true
         }
     });
-    return r?.value;
+    return r?.value == null ? undefined : r.value;
 };
 
 export const SetConfig = async (key: string, value: string): Promise<string> => {
@@ -25,5 +25,6 @@ export const SetConfig = async (key: string, value: string): Promise<string> => 
             value
         }
     });
-    return r.value;
+    if (r == null) throw new Error('Couldnt set config');
+    return r.value || '';
 };

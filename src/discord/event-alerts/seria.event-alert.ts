@@ -14,8 +14,8 @@ export const SERIA_EVENT_ALERT: TEventAlert = {
     callback: async function (
         message: Message<boolean>,
         eventAlertData: {
-            channelAlertId: string;
-            channelEventId: string;
+            channelAlertId: string | undefined;
+            channelEventId: string | undefined;
             role: { name: string; id: string };
             eventAlert: TEventAlert;
         },
@@ -24,7 +24,7 @@ export const SERIA_EVENT_ALERT: TEventAlert = {
     ): Promise<void> {
         try {
             const embed = message.embeds[0];
-            const match = embed?.title.match(/seria.+(?<expires>Expire(s|d) \<t\:[0-9]+\:R\>)/i);
+            const match = embed?.title?.match(/seria.+(?<expires>Expire(s|d) \<t\:[0-9]+\:R\>)/i);
             if (match && match.groups?.expires) {
                 await alertCh.send(
                     `${this.icon} Seria ${message.url}\n||${match?.groups?.expires} <@&${eventAlertData.role.id}>||`

@@ -17,11 +17,11 @@ const getLogginLevel = (): Array<Prisma.LogLevel | Prisma.LogDefinition> => {
 };
 
 const _staticConfig = {
-    secureKey: process.env.SEC_SECRET,
+    secureKey: process.env.SEC_SECRET || '',
     loggingLevel: getLogginLevel(),
     hash: {
         saltRounds: 10,
-        secret: process.env.HASH_SECRET
+        secret: process.env.HASH_SECRET || ''
     },
     discord: {
         key: process.env.DISCORD_KEY

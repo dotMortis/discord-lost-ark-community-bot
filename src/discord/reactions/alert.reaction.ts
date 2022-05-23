@@ -15,8 +15,8 @@ export const ALERT_REACTION: TReaction = {
         reaction: MessageReaction | PartialMessageReaction,
         reactionHex: string,
         reactionData: {
-            channelId: string;
-            messageId: string;
+            channelId: string | undefined;
+            messageId: string | undefined;
             roles: Map<string, string>;
             reaction: TReaction;
         },
@@ -29,15 +29,15 @@ export const ALERT_REACTION: TReaction = {
         } else {
             const role = reactionData.roles.get(this.roles[alertIndex]);
             const member = discord.guild.members.cache.get(user.id);
-            await member.roles.add(role);
+            if (role && member) await member.roles.add(role);
         }
     },
     removeCallback: async function (
         reaction: MessageReaction | PartialMessageReaction,
         reactionHex: string,
         reactionData: {
-            channelId: string;
-            messageId: string;
+            channelId: string | undefined;
+            messageId: string | undefined;
             roles: Map<string, string>;
             reaction: TReaction;
         },
@@ -50,7 +50,7 @@ export const ALERT_REACTION: TReaction = {
         } else {
             const role = reactionData.roles.get(this.roles[alertIndex]);
             const member = discord.guild.members.cache.get(user.id);
-            member.roles.remove(role);
+            if (member && role) await member.roles.remove(role);
         }
     }
 };

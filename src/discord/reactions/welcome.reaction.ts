@@ -20,7 +20,8 @@ export const WELCOME_REACTION: TReaction = {
             await reaction.remove();
         } else {
             const member = discord.guild.members.cache.get(user.id);
-            await member.roles.add(reactionData.roles.get(this.roles[0]));
+            const role = reactionData.roles.get(this.roles[0]);
+            if (role && member) await member.roles.add(role);
         }
     },
     removeCallback: async function (
@@ -32,7 +33,8 @@ export const WELCOME_REACTION: TReaction = {
     ): Promise<void> {
         if (this.icons[0] === reactionHex) {
             const member = discord.guild.members.cache.get(user.id);
-            member.roles.remove(reactionData.roles.get(this.roles[0]));
+            const role = reactionData.roles.get(this.roles[0]);
+            if (role && member) await member.roles.remove(role);
         }
     }
 };

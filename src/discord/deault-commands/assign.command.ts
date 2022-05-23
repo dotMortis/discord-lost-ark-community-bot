@@ -26,7 +26,7 @@ export const ASSIGN_COMMAND: TDefaultCommand = {
                     value: msg.channelId
                 }
             });
-            discord.calData.channelId = config.value;
+            discord.calData.channelId = config.value || undefined;
             await msg.reply('Done!');
             await discord.initCalendarChannel();
         } else if (type === 'com') {
@@ -43,7 +43,7 @@ export const ASSIGN_COMMAND: TDefaultCommand = {
                     value: msg.channelId
                 }
             });
-            discord.commandsChannelId = config.value;
+            discord.commandsChannelId = config.value == null ? undefined : config.value;
             await msg.reply('Done!');
         } else if (type === 'clean_ref') {
             const key = 'REF_CLEAN_CHS';

@@ -4,10 +4,9 @@ import { path as rootPath } from 'app-root-path';
 import { TextChannel } from 'discord.js';
 import EventEmitter from 'events';
 import path from 'path';
+import { v4 } from 'uuid';
 import { prismaClient } from '../db/prisma-client';
 import { Discord } from '../discord/discord.model';
-
-export type TMemberEvent = 'UPDATE';
 
 export const NUMERIC_EMOTES = {
     one: {
@@ -39,7 +38,18 @@ export const NUMERIC_EMOTES = {
 export class MemberEventFactory extends EventEmitter {
     private _runAgain: boolean;
     private _isRunning: boolean;
-    private _updateEventIds: Array<number>;
+    private _actionQueue: Array<{
+        uid: string;
+        data:
+            | TCreateEvent
+            | TRemoveEvent
+            | TUpdateEventDesc
+            | TUpdateParytDesc
+            | TAddMember
+            | TRemoveMemberByUserId
+            | TRemoveMemberByPartyNumber
+            | TSwitchMembers;
+    }>;
     private readonly _eventIdReg: RegExp;
     private readonly _joinEventReg: RegExp;
     private readonly _discord: Discord;
@@ -49,11 +59,22 @@ export class MemberEventFactory extends EventEmitter {
         this._isRunning = false;
         this._eventIdReg = new RegExp(/E-ID:( +|\t)(?<id>[0-9]+)/);
         this._joinEventReg = new RegExp(/E-ID:( +|\t)(?<id>1)\nChar-Nummer:(.+|\t)(?<char>[0-9]+)/);
-        this._updateEventIds = new Array<number>();
+        this._actionQueue = new Array<{
+            uid: string;
+            data:
+                | TCreateEvent
+                | TRemoveEvent
+                | TUpdateEventDesc
+                | TUpdateParytDesc
+                | TAddMember
+                | TRemoveMemberByUserId
+                | TRemoveMemberByPartyNumber
+                | TSwitchMembers;
+        }>();
         this._discord = discord;
-        this.on('UPDATE', async (eventId: number) => {
+        this.on('ACTION', async data => {
             try {
-                this._updateEventIds.push(eventId);
+                this._actionQueue.push(data);
                 await this._updateEvents();
             } catch (error: any) {
                 logger.error(error);
@@ -61,12 +82,49 @@ export class MemberEventFactory extends EventEmitter {
         });
     }
 
-    public emit(eventName: TMemberEvent, eventId: number): boolean {
-        return super.emit(eventName, eventId);
+    public on<ACTION_DATA extends typeof this._actionQueue[number]['data']>(
+        eventName: 'ACTION',
+        cb: (data: { data: ACTION_DATA; uid: string }) => void
+    ): this {
+        return super.on(eventName, cb);
     }
 
-    public on(eventName: TMemberEvent, cb: (eventId: number) => void) {
-        return super.on(eventName, cb);
+    public emit<ACTION_DATA extends typeof this._actionQueue[number]['data']>(
+        eventName: 'ACTION',
+        data: { data: ACTION_DATA; uid: string }
+    ): boolean {
+        return super.emit(eventName, data);
+    }
+
+    public async action<ACTION_DATA extends typeof this._actionQueue[number]['data']>(
+        actionData: ACTION_DATA
+    ): Promise<void> {
+        const currUid = v4();
+        this.emit('ACTION', { data: actionData, uid: currUid });
+        return new Promise<void>((res, rej) => {
+            const cb = (uid: string, data: ACTION_DATA, error?: Error) => {
+                if (uid === currUid) {
+                    this.removeListener(actionData.type, cb);
+                    if (error) rej();
+                    else res();
+                }
+            };
+            this.onActionEnd(actionData.type, cb);
+        });
+    }
+
+    public emitActionEnd<ACTION_DATA extends typeof this._actionQueue[number]['data']>(
+        action: ACTION_DATA['type'],
+        data: { uid: string; data: ACTION_DATA; error?: Error }
+    ): boolean {
+        return super.emit(action, data);
+    }
+
+    public onActionEnd<ACTION_DATA extends typeof this._actionQueue[number]['data']>(
+        action: ACTION_DATA['type'],
+        cb: (uid: string, data: ACTION_DATA, error?: Error) => void
+    ): this {
+        return super.on(action, cb);
     }
 
     public async init(): Promise<void> {
@@ -74,16 +132,12 @@ export class MemberEventFactory extends EventEmitter {
         await this._fetchAllMessages();
         this._discord.bot.on('messageReactionAdd', async (reaction, user) => {
             try {
-                if (user.id === this._discord.bot.user.id) return;
-                if (reaction.message.guildId) {
+                if (user.id === this._discord.bot.user?.id) return;
+                if (reaction.message.guildId && reaction.emoji.name) {
                     const iconHex = Buffer.from(reaction.emoji.name).toString('hex');
-                    console.log(iconHex);
                     const charNumber = this._iconToNumber(iconHex);
-                    console.log(charNumber);
                     if (charNumber != null) {
-                        const regResult = reaction.message.content.match(this._eventIdReg);
-                        console.log(regResult);
-
+                        const regResult = reaction.message.content?.match(this._eventIdReg);
                         if (regResult?.groups?.id) {
                             const event = await this._getEventFromId(Number(regResult.groups.id));
                             const newMessage = await user.send(
@@ -95,16 +149,18 @@ export class MemberEventFactory extends EventEmitter {
                             );
                             const classes = await prismaClient.class.findMany();
                             const reactPromise = Promise.all(
-                                classes.map(laClass => newMessage.react(laClass.iconId))
+                                classes.map(laClass =>
+                                    laClass.iconId ? newMessage.react(laClass.iconId) : undefined
+                                )
                             );
                             await reactPromise;
                         }
                     }
-                } else {
-                    const regResult = reaction.message.content.match(this._joinEventReg);
-                    if (regResult) {
+                } else if (reaction.emoji.name) {
+                    const regResult = reaction.message.content?.match(this._joinEventReg);
+                    if (regResult?.groups) {
                         const { id: eventId, char: charNumber } = regResult.groups;
-                        await this.addMember(
+                        await this._addMember(
                             Number(eventId),
                             reaction.emoji.name,
                             Number(charNumber),
@@ -115,18 +171,18 @@ export class MemberEventFactory extends EventEmitter {
             } catch (e) {
                 logger.error(e);
             } finally {
-                if (user.id !== this._discord.bot.user.id && !reaction.message.guildId)
+                if (user.id !== this._discord.bot.user?.id && !reaction.message.guildId)
                     await reaction.message.delete();
             }
         });
         this._discord.bot.on('messageReactionRemove', async (reaction, user) => {
             try {
-                if (user.id === this._discord.bot.user.id) return;
+                if (user.id === this._discord.bot.user?.id) return;
                 const charNumber = this._iconToNumber(
-                    Buffer.from(reaction.emoji.name).toString('hex')
+                    Buffer.from(reaction.emoji?.name || '').toString('hex')
                 );
                 if (charNumber != null) {
-                    const regResult = reaction.message.content.match(this._eventIdReg);
+                    const regResult = reaction.message.content?.match(this._eventIdReg);
                     if (regResult) {
                         await user.send('Test remove');
                     }
@@ -135,17 +191,17 @@ export class MemberEventFactory extends EventEmitter {
                 logger.error(e);
             }
         });
-        await this.updateAllEvents();
+        //TODO: await this.updateAllEvents();
     }
 
-    public async createEvent(
+    private async _createEvent(
         creatorId: string,
         dds: number,
         supps: number,
         free: number,
         name: string,
         channelId: string
-    ): Promise<void> {
+    ): Promise<number> {
         const event = await prismaClient.event.create({
             data: {
                 creatorId,
@@ -159,21 +215,24 @@ export class MemberEventFactory extends EventEmitter {
                 }
             }
         });
-        this.emit('UPDATE', event.id);
+        return event.id;
     }
 
-    public async removeEvent(eventId: number): Promise<void> {
+    private async _removeEvent(eventId: number): Promise<number> {
         const event = await prismaClient.event.delete({
             where: {
                 id: eventId
             }
         });
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
-        const message = channel.messages.cache.get(event.messageId);
-        await message.delete();
+        if (event?.messageId) {
+            const message = channel.messages.cache.get(event.messageId);
+            await message?.delete();
+        }
+        return eventId;
     }
 
-    public async updateEventDesc(eventId: number, description: string): Promise<void> {
+    private async _updateEventDesc(eventId: number, description: string): Promise<number> {
         await prismaClient.event.update({
             where: {
                 id: eventId
@@ -182,14 +241,14 @@ export class MemberEventFactory extends EventEmitter {
                 description
             }
         });
-        this.emit('UPDATE', eventId);
+        return eventId;
     }
 
-    public async updateParytDesc(
+    private async _updateParytDesc(
         eventId: number,
         partyNumber: number,
         description: string
-    ): Promise<void> {
+    ): Promise<number> {
         const party = await this._getPartyByNumber(eventId, partyNumber, false);
         if (party) {
             await prismaClient.party.update({
@@ -200,21 +259,21 @@ export class MemberEventFactory extends EventEmitter {
                     description
                 }
             });
-            this.emit('UPDATE', eventId);
         }
+        return eventId;
     }
 
-    public async addMember(
+    private async _addMember(
         eventId: number,
         classIcon: string,
         charNumber: number,
         userId: string
-    ): Promise<void> {
+    ): Promise<number> {
         const event = await this._getEventFromId(eventId);
         const laClass = await this._getClassFromIcon(classIcon);
         const maxMembers = event.dds + event.free + event.supps;
         const maxRoleCount = this._getRoleCounts(event, laClass);
-        if (maxRoleCount < 1) return;
+        if (maxRoleCount < 1) return eventId;
         let isAdded = false;
         for (const party of event.partys) {
             const currRoleCount = party.partyMembers.filter(
@@ -222,11 +281,8 @@ export class MemberEventFactory extends EventEmitter {
             ).length;
             const isUserInParty =
                 party.partyMembers.findIndex(member => {
-                    console.log(member.userId, userId);
-
                     return member.userId === userId;
                 }) > -1;
-            console.log(isUserInParty);
             if (
                 !isUserInParty &&
                 party.partyMembers.length < maxMembers &&
@@ -246,14 +302,14 @@ export class MemberEventFactory extends EventEmitter {
                 userId
             );
         }
-        this.emit('UPDATE', eventId);
+        return eventId;
     }
 
-    public async removeMemberByUserId(
+    private async _removeMemberByUserId(
         eventId: number,
         charNumber: number,
         userId: string
-    ): Promise<void> {
+    ): Promise<number> {
         await prismaClient.partyMember.deleteMany({
             where: {
                 party: {
@@ -263,14 +319,14 @@ export class MemberEventFactory extends EventEmitter {
                 userId
             }
         });
-        this.emit('UPDATE', eventId);
+        return eventId;
     }
 
-    public async removeMemberByPartyNumber(
+    private async _removeMemberByPartyNumber(
         eventId: number,
         memberNumber: number,
         partyNumber: number
-    ): Promise<void> {
+    ): Promise<number> {
         const party = await this._getPartyByNumber(eventId, partyNumber, true);
         const partyMember = party?.partyMembers.find(member => member.memberNo === memberNumber);
         if (partyMember) {
@@ -279,15 +335,15 @@ export class MemberEventFactory extends EventEmitter {
                     uid: partyMember.uid
                 }
             });
-            this.emit('UPDATE', eventId);
         }
+        return eventId;
     }
 
-    public async switchMembers(
+    private async _switchMembers(
         eventId: number,
         memberOne: { memberNumber: number; partyNumber: number },
         memberTwo: { memberNumber: number; partyNumber: number }
-    ): Promise<void> {
+    ): Promise<number> {
         const partys = await prismaClient.party.findMany({
             where: {
                 eventId
@@ -335,37 +391,100 @@ export class MemberEventFactory extends EventEmitter {
                         memberNo: partyMemberTwo.memberNo
                     }
                 });
-                this.emit('UPDATE', eventId);
+
                 break;
             }
         }
+        return eventId;
     }
 
-    public async updateAllEvents(): Promise<void> {
-        const events = await prismaClient.event.findMany();
-        for (const event of events) {
-            this.emit('UPDATE', event.id);
-        }
-    }
-
-    private async _updateEvents() {
+    private async _updateEvents(): Promise<void> {
         if (this._isRunning) {
             this._runAgain = this._isRunning;
             return;
         }
         this._isRunning = true;
         do {
-            let eventId: number;
-            while ((eventId = this._updateEventIds.shift())) {
-                await this._updateEvent(eventId);
+            let actionData: typeof this._actionQueue[number] | undefined;
+            while ((actionData = this._actionQueue.shift())) {
+                try {
+                    let eventId: number | undefined;
+                    const { uid, data } = actionData;
+                    switch (data.type) {
+                        case EMemberEvent.ADD_MEMBER: {
+                            eventId = await this._addMember(
+                                data.eventId,
+                                data.classIcon,
+                                data.charNumber,
+                                data.userId
+                            );
+                            break;
+                        }
+                        case EMemberEvent.CREATE_EVENT: {
+                            eventId = await this._createEvent(
+                                data.creatorId,
+                                data.dds,
+                                data.supps,
+                                data.free,
+                                data.name,
+                                data.channelId
+                            );
+                            break;
+                        }
+                        case EMemberEvent.REMOVE_EVENT: {
+                            eventId = await this._removeEvent(data.eventId);
+                            break;
+                        }
+                        case EMemberEvent.REMOVE_MEMBER_BY_PARTY_NUMBER: {
+                            eventId = await this._removeMemberByPartyNumber(
+                                data.eventId,
+                                data.memberNumber,
+                                data.partyNumber
+                            );
+                            break;
+                        }
+                        case EMemberEvent.REMOVE_MEMBER_BY_USER_ID: {
+                            eventId = await this._removeMemberByUserId(
+                                data.eventId,
+                                data.charNumber,
+                                data.userId
+                            );
+                            break;
+                        }
+                        case EMemberEvent.SWITCH_MEMBERS: {
+                            eventId = await this._switchMembers(
+                                data.eventId,
+                                data.memberOne,
+                                data.memberTwo
+                            );
+                            break;
+                        }
+                        case EMemberEvent.UPDATE_EVENT_DESC: {
+                            eventId = await this._updateEventDesc(data.eventId, data.description);
+                            break;
+                        }
+                        case EMemberEvent.UPDATE_PARTY_DESC: {
+                            eventId = await this._updateParytDesc(
+                                data.eventId,
+                                data.partyNumber,
+                                data.description
+                            );
+                            break;
+                        }
+                        default:
+                            throw new Error('Not implemented');
+                    }
+                    this.emitActionEnd(data.type, actionData);
+                    if (eventId != null) await this._updateEvent(eventId);
+                } catch (error: any) {
+                    this.emitActionEnd(actionData.data.type, { ...actionData, error });
+                }
             }
         } while (this._runAgain);
         this._isRunning = false;
     }
 
-    private async _updateEvent(eventId: number) {
-        console.log('_updateEvent', eventId);
-
+    private async _updateEvent(eventId: number): Promise<void> {
         const event = await prismaClient.event.findFirst({
             where: {
                 id: eventId
@@ -388,7 +507,7 @@ export class MemberEventFactory extends EventEmitter {
                 }
             }
         });
-
+        if (!event) return;
         let msg = `${event.name}\nE-ID:\t${event.id}`;
         for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
             const party = event.partys[partyIndex - 1];
@@ -413,7 +532,6 @@ export class MemberEventFactory extends EventEmitter {
                     }
                 });
                 for (const emote of Object.values(NUMERIC_EMOTES)) {
-                    console.log(emote);
                     await newMessage.react(emote.unicode);
                 }
             }
@@ -428,22 +546,31 @@ export class MemberEventFactory extends EventEmitter {
                 }
             });
             for (const emote of Object.values(NUMERIC_EMOTES)) {
-                console.log(emote);
                 await newMessage.react(emote.unicode);
             }
         }
     }
 
-    private _getClassFromIcon(classIcon: string) {
-        return prismaClient.class.findUnique({
+    private async _getClassFromIcon(classIcon: string): Promise<Class> {
+        const laClass = await prismaClient.class.findUnique({
             where: {
                 icon: classIcon
             }
         });
+        if (laClass == null) throw new Error('Not found');
+        return laClass;
     }
 
-    private _getEventFromId(eventId: number) {
-        return prismaClient.event.findFirst({
+    private async _getEventFromId(eventId: number): Promise<
+        Event & {
+            partys: (Party & {
+                partyMembers: (PartyMember & {
+                    class: Class;
+                })[];
+            })[];
+        }
+    > {
+        const event = await prismaClient.event.findFirst({
             where: {
                 id: eventId
             },
@@ -459,6 +586,8 @@ export class MemberEventFactory extends EventEmitter {
                 }
             }
         });
+        if (event == null) throw new Error('Not found');
+        return event;
     }
 
     private _getRoleCounts(event: Event, laClass: Class): number {
@@ -492,13 +621,6 @@ export class MemberEventFactory extends EventEmitter {
             if (partyMember.memberNo !== memberNo) break;
             memberNo++;
         }
-        console.log({
-            charNo: charNumber,
-            memberNo,
-            userId,
-            classUid: laClass.uid,
-            partyId: party.id
-        });
 
         await prismaClient.partyMember.create({
             data: {
@@ -606,3 +728,64 @@ export class MemberEventFactory extends EventEmitter {
         }
     }
 }
+
+export enum EMemberEvent {
+    CREATE_EVENT = 'CREATE_EVENT',
+    REMOVE_EVENT = 'REMOVE_EVENT',
+    UPDATE_EVENT_DESC = 'UPDATE_EVENT_DESC',
+    UPDATE_PARTY_DESC = 'UPDATE_PARTY_DESC',
+    ADD_MEMBER = 'ADD_MEMBER',
+    REMOVE_MEMBER_BY_USER_ID = 'REMOVE_MEMBER_BY_USER_ID',
+    REMOVE_MEMBER_BY_PARTY_NUMBER = 'REMOVE_MEMBER_BY_PARTY_NUMBER',
+    SWITCH_MEMBERS = 'SWITCH_MEMBERS'
+}
+
+export type TCreateEvent = {
+    type: EMemberEvent.CREATE_EVENT;
+    creatorId: string;
+    dds: number;
+    supps: number;
+    free: number;
+    name: string;
+    channelId: string;
+};
+export type TRemoveEvent = {
+    type: EMemberEvent.REMOVE_EVENT;
+    eventId: number;
+};
+export type TUpdateEventDesc = {
+    type: EMemberEvent.UPDATE_EVENT_DESC;
+    eventId: number;
+    description: string;
+};
+export type TUpdateParytDesc = {
+    type: EMemberEvent.UPDATE_PARTY_DESC;
+    eventId: number;
+    partyNumber: number;
+    description: string;
+};
+export type TAddMember = {
+    type: EMemberEvent.ADD_MEMBER;
+    eventId: number;
+    classIcon: string;
+    charNumber: number;
+    userId: string;
+};
+export type TRemoveMemberByUserId = {
+    type: EMemberEvent.REMOVE_MEMBER_BY_USER_ID;
+    eventId: number;
+    charNumber: number;
+    userId: string;
+};
+export type TRemoveMemberByPartyNumber = {
+    type: EMemberEvent.REMOVE_MEMBER_BY_PARTY_NUMBER;
+    eventId: number;
+    memberNumber: number;
+    partyNumber: number;
+};
+export type TSwitchMembers = {
+    type: EMemberEvent.SWITCH_MEMBERS;
+    eventId: number;
+    memberOne: { memberNumber: number; partyNumber: number };
+    memberTwo: { memberNumber: number; partyNumber: number };
+};

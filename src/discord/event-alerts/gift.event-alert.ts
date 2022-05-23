@@ -14,8 +14,8 @@ export const GIFT_EVENT_ALERT: TEventAlert = {
     callback: async function (
         message: Message<boolean>,
         eventAlertData: {
-            channelAlertId: string;
-            channelEventId: string;
+            channelAlertId: string | undefined;
+            channelEventId: string | undefined;
             role: { name: string; id: string };
             eventAlert: TEventAlert;
         },
@@ -25,7 +25,7 @@ export const GIFT_EVENT_ALERT: TEventAlert = {
         try {
             const embed = message.embeds[0];
             if (embed?.description) {
-                const expireMatch = embed.title.match(/(?<expires>Expire(s|d) \<t\:[0-9]+\:R\>)/i);
+                const expireMatch = embed.title?.match(/(?<expires>Expire(s|d) \<t\:[0-9]+\:R\>)/i);
                 const giftMatch = embed.description.match(/gift\:.+Legendary/i);
                 if (giftMatch && expireMatch && expireMatch.groups?.expires) {
                     await alertCh.send(
