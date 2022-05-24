@@ -280,7 +280,16 @@ export class MemberEventFactory extends EventEmitter {
         const laClass = await this._getClassFromIcon(classIcon);
         const maxMembers = event.dds + event.free + event.supps;
         const maxRoleCount = this._getRoleCounts(event, laClass);
-        if (maxRoleCount < 1) return eventId;
+        if (
+            maxRoleCount < 1 ||
+            event.partys.find(party =>
+                party.partyMembers.find(
+                    member => member.userId === userId && member.charNo === charNumber
+                )
+            ) != null
+        ) {
+            return eventId;
+        }
         let isAdded = false;
         for (const party of event.partys) {
             const currRoleCount = party.partyMembers.filter(
@@ -515,15 +524,19 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (!event) return;
+
         let msg = `${event.name}\nE-ID:\t${event.id}`;
         for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
             const party = event.partys[partyIndex - 1];
+            if (party.isDone) msg += '~~';
             msg += `\nGroup ${partyIndex}:`;
             for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
                 const member = party.partyMembers[memberIndex - 1];
                 msg += `\n\t${member.memberNo} <:${member.class.icon}:${member.class.iconId}> <@${member.userId}>`;
             }
+            if (party.isDone) msg += '~~';
         }
+
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
             const message = channel.messages.cache.get(event.messageId);
