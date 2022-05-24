@@ -191,7 +191,14 @@ export class MemberEventFactory extends EventEmitter {
                 logger.error(e);
             }
         });
-        //TODO: await this.updateAllEvents();
+        await this.updateAllEvents();
+    }
+
+    public async updateAllEvents(): Promise<void> {
+        const events = await prismaClient.event.findMany({});
+        for (const event of events) {
+            await this._updateEvent(event.id);
+        }
     }
 
     private async _createEvent(
