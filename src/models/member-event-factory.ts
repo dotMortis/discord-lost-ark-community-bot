@@ -1,7 +1,7 @@
 import { logger } from '@bits_devel/logger';
 import { Class, Event, Party, PartyMember, Role } from '@prisma/client';
 import { path as rootPath } from 'app-root-path';
-import { TextChannel } from 'discord.js';
+import { Emoji, Message, TextChannel } from 'discord.js';
 import EventEmitter from 'events';
 import path from 'path';
 import { v4 } from 'uuid';
@@ -100,10 +100,16 @@ export class MemberEventFactory extends EventEmitter {
         actionData: ACTION_DATA
     ): Promise<void> {
         const currUid = v4();
+        console.log('START ACTION', currUid, actionData);
+
         this.emit('ACTION', { data: actionData, uid: currUid });
         return new Promise<void>((res, rej) => {
             const cb = (uid: string, data: ACTION_DATA, error?: Error) => {
+                console.log('END', uid);
+
                 if (uid === currUid) {
+                    console.log('Action end', uid, data);
+
                     this.removeListener(actionData.type, cb);
                     if (error) rej();
                     else res();
@@ -117,7 +123,7 @@ export class MemberEventFactory extends EventEmitter {
         action: ACTION_DATA['type'],
         data: { uid: string; data: ACTION_DATA; error?: Error }
     ): boolean {
-        return super.emit(action, data);
+        return super.emit(action, data.uid, data.data, data.error);
     }
 
     public onActionEnd<ACTION_DATA extends typeof this._actionQueue[number]['data']>(
@@ -134,38 +140,64 @@ export class MemberEventFactory extends EventEmitter {
             try {
                 if (user.id === this._discord.bot.user?.id) return;
                 if (reaction.message.guildId && reaction.emoji.name) {
-                    const iconHex = Buffer.from(reaction.emoji.name).toString('hex');
-                    const charNumber = this._iconToNumber(iconHex);
-                    if (charNumber != null) {
+                    const laClass = await this._getClassFromIcon(reaction.emoji.name).catch(
+                        _ => null
+                    );
+                    if (laClass != null) {
                         const regResult = reaction.message.content?.match(this._eventIdReg);
                         if (regResult?.groups?.id) {
                             const event = await this._getEventFromId(Number(regResult.groups.id));
-                            const newMessage = await user.send(
-                                `${event.name}\nE-ID:\t${
-                                    event.id
-                                }\nChar-Nummer:\t${this._iconToNumber(
-                                    iconHex
-                                )}\nBitte reagieren mit der Klasse, welche hinzugefügt werden soll.`
-                            );
-                            const classes = await prismaClient.class.findMany();
-                            const reactPromise = Promise.all(
-                                classes.map(laClass =>
-                                    laClass.iconId ? newMessage.react(laClass.iconId) : undefined
-                                )
-                            );
-                            await reactPromise;
+                            await this.action<TAddMember>({
+                                classIcon: reaction.emoji.name,
+                                eventId: event.id,
+                                type: EMemberEvent.ADD_MEMBER,
+                                userId: user.id
+                            });
+                        }
+                    } else if (Buffer.from(reaction.emoji.name).toString('hex') === 'f09f9aab') {
+                        const regResult = reaction.message.content?.match(this._eventIdReg);
+                        if (regResult?.groups?.id) {
+                            const event = await this._getEventFromId(Number(regResult.groups.id));
+                            let msg = `${event.name}\nE-ID:\t${event.id}\nBitte reagieren mit der Nummer des zu löschenden Characters.`;
+                            const partyMembersOfUser = new Array<
+                                PartyMember & { class: Class; partyNumber: number }
+                            >();
+                            for (
+                                let partyCount = 0;
+                                partyCount < event.partys.length;
+                                partyCount++
+                            ) {
+                                const party = event.partys[partyCount];
+                                for (const partyMember of party.partyMembers) {
+                                    if (partyMember.userId === user.id)
+                                        partyMembersOfUser.push({
+                                            ...partyMember,
+                                            partyNumber: partyCount + 1
+                                        });
+                                }
+                            }
+                            if (!partyMembersOfUser.length) return;
+                            partyMembersOfUser.sort((a, b) => a.charNo - b.charNo);
+                            partyMembersOfUser.forEach(partyMember => {
+                                msg += `\n#${partyMember.charNo} ${this._getIconStringFromClass(
+                                    partyMember.class
+                                )} - Party ${partyMember.partyNumber}`;
+                            });
+                            const newMessage = await user.send(msg);
+                            await this._setReactions(newMessage, 'numbers', 6);
                         }
                     }
-                } else if (reaction.emoji.name) {
-                    const regResult = reaction.message.content?.match(this._joinEventReg);
-                    if (regResult?.groups) {
-                        const { id: eventId, char: charNumber } = regResult.groups;
-                        await this._addMember(
-                            Number(eventId),
-                            reaction.emoji.name,
-                            Number(charNumber),
-                            user.id
-                        );
+                } else if (reaction.emoji) {
+                    const regResult = reaction.message.content?.match(this._eventIdReg);
+                    const charNumber = this._iconToNumber(reaction.emoji);
+                    if (regResult?.groups?.id && charNumber != null) {
+                        const event = await this._getEventFromId(Number(regResult.groups.id));
+                        await this.action<TRemoveMemberByUserId>({
+                            charNumber,
+                            eventId: event.id,
+                            type: EMemberEvent.REMOVE_MEMBER_BY_USER_ID,
+                            userId: user.id
+                        });
                     }
                 }
             } catch (e) {
@@ -173,18 +205,23 @@ export class MemberEventFactory extends EventEmitter {
             } finally {
                 if (user.id !== this._discord.bot.user?.id && !reaction.message.guildId)
                     await reaction.message.delete();
+                else if (user.id !== this._discord.bot.user?.id)
+                    await reaction.users.remove(user.id);
             }
         });
         this._discord.bot.on('messageReactionRemove', async (reaction, user) => {
             try {
                 if (user.id === this._discord.bot.user?.id) return;
-                const charNumber = this._iconToNumber(
-                    Buffer.from(reaction.emoji?.name || '').toString('hex')
-                );
+                const charNumber = this._iconToNumber(reaction.emoji);
                 if (charNumber != null) {
                     const regResult = reaction.message.content?.match(this._eventIdReg);
-                    if (regResult) {
-                        await user.send('Test remove');
+                    if (regResult?.groups?.id) {
+                        await this.action<TRemoveMemberByUserId>({
+                            charNumber,
+                            eventId: Number(regResult.groups.id),
+                            type: EMemberEvent.REMOVE_MEMBER_BY_USER_ID,
+                            userId: user.id
+                        });
                     }
                 }
             } catch (e) {
@@ -270,25 +307,34 @@ export class MemberEventFactory extends EventEmitter {
         return eventId;
     }
 
-    private async _addMember(
-        eventId: number,
-        classIcon: string,
-        charNumber: number,
-        userId: string
-    ): Promise<number> {
+    private async _addMember(eventId: number, classIcon: string, userId: string): Promise<number> {
         const event = await this._getEventFromId(eventId);
         const laClass = await this._getClassFromIcon(classIcon);
         const maxMembers = event.dds + event.free + event.supps;
         const maxRoleCount = this._getRoleCounts(event, laClass);
-        if (
-            maxRoleCount < 1 ||
-            event.partys.find(party =>
-                party.partyMembers.find(
-                    member => member.userId === userId && member.charNo === charNumber
-                )
-            ) != null
-        ) {
+        let currentUserCount = 0;
+        const charNumbers = new Array<number>();
+        for (const party of event.partys) {
+            currentUserCount += party.partyMembers.filter(member => {
+                const result = member.userId === userId;
+                if (result) charNumbers.push(member.charNo);
+                return result;
+            }).length;
+        }
+        if (maxRoleCount < 1 || currentUserCount === 6) {
             return eventId;
+        }
+        charNumbers.sort((a, b) => a - b);
+        let newCharNumber = charNumbers.length ? 0 : 1;
+        for (let z = 1; z <= charNumbers.length; z++) {
+            console.log(z, charNumbers[z - 1]);
+
+            if (z !== charNumbers[z - 1]) {
+                newCharNumber = z;
+                break;
+            } else {
+                newCharNumber = z + 1;
+            }
         }
         let isAdded = false;
         for (const party of event.partys) {
@@ -304,7 +350,7 @@ export class MemberEventFactory extends EventEmitter {
                 party.partyMembers.length < maxMembers &&
                 currRoleCount < maxRoleCount
             ) {
-                await this._addMemberToParty(party, laClass, charNumber, userId);
+                await this._addMemberToParty(party, laClass, newCharNumber, userId);
                 isAdded = true;
                 break;
             }
@@ -314,7 +360,7 @@ export class MemberEventFactory extends EventEmitter {
             await this._addMemberToParty(
                 { ...newParty, partyMembers: new Array<PartyMember>() },
                 laClass,
-                charNumber,
+                newCharNumber,
                 userId
             );
         }
@@ -360,6 +406,8 @@ export class MemberEventFactory extends EventEmitter {
         memberOne: { memberNumber: number; partyNumber: number },
         memberTwo: { memberNumber: number; partyNumber: number }
     ): Promise<number> {
+        console.log('_switchMembers', memberOne, memberTwo);
+
         const partys = await prismaClient.party.findMany({
             where: {
                 eventId
@@ -373,19 +421,42 @@ export class MemberEventFactory extends EventEmitter {
         });
         let partyMemberOne: PartyMember | undefined;
         let partyMemberTwo: PartyMember | undefined;
+        let partyOne: (Party & { partyMembers: PartyMember[] }) | null = null;
+        let partyTwo: (Party & { partyMembers: PartyMember[] }) | null = null;
         for (let z = 0; z < partys.length; z++) {
             const party = partys[z];
             if (z + 1 === memberOne.partyNumber) {
                 partyMemberOne = party.partyMembers.find(
                     member => member.memberNo === memberOne.memberNumber
                 );
+                partyOne = party;
             }
             if (z + 1 === memberTwo.partyNumber) {
                 partyMemberTwo = party.partyMembers.find(
                     member => member.memberNo === memberTwo.memberNumber
                 );
+                partyTwo = party;
             }
-            if (partyMemberOne && partyMemberTwo) {
+            if (partyMemberOne && partyMemberTwo && partyOne && partyTwo) {
+                const duplicateMemberOne = partyOne.partyMembers.find(
+                    member => member.userId === partyMemberTwo?.userId
+                );
+                if (duplicateMemberOne && partyMemberOne.userId !== duplicateMemberOne.userId) {
+                    console.log('Duplicate1', duplicateMemberOne);
+
+                    return eventId;
+                }
+                const duplicateMemberTwo = partyTwo.partyMembers.find(
+                    member => member.userId === partyMemberOne?.userId
+                );
+                if (duplicateMemberTwo && partyMemberTwo.userId !== duplicateMemberTwo.userId) {
+                    console.log('Duplicate2', duplicateMemberTwo);
+                    return eventId;
+                }
+
+                console.log('Member one', partyMemberOne);
+                console.log('Member two', partyMemberTwo);
+
                 await prismaClient.partyMember.delete({
                     where: {
                         uid: partyMemberOne.uid
@@ -415,12 +486,16 @@ export class MemberEventFactory extends EventEmitter {
     }
 
     private async _updateEvents(): Promise<void> {
+        console.log('_updateEvents');
+
         if (this._isRunning) {
             this._runAgain = this._isRunning;
             return;
         }
         this._isRunning = true;
+        let isRerun = false;
         do {
+            isRerun = this._runAgain;
             let actionData: typeof this._actionQueue[number] | undefined;
             while ((actionData = this._actionQueue.shift())) {
                 try {
@@ -431,7 +506,6 @@ export class MemberEventFactory extends EventEmitter {
                             eventId = await this._addMember(
                                 data.eventId,
                                 data.classIcon,
-                                data.charNumber,
                                 data.userId
                             );
                             break;
@@ -491,16 +565,22 @@ export class MemberEventFactory extends EventEmitter {
                             throw new Error('Not implemented');
                     }
                     this.emitActionEnd(data.type, actionData);
+                    console.log('Event-ID', eventId);
+
                     if (eventId != null) await this._updateEvent(eventId);
                 } catch (error: any) {
                     this.emitActionEnd(actionData.data.type, { ...actionData, error });
+                    logger.error(error);
                 }
             }
+            if (isRerun) this._runAgain = isRerun = false;
         } while (this._runAgain);
         this._isRunning = false;
     }
 
     private async _updateEvent(eventId: number): Promise<void> {
+        console.log('_updateEvent', eventId);
+
         const event = await prismaClient.event.findFirst({
             where: {
                 id: eventId
@@ -525,14 +605,19 @@ export class MemberEventFactory extends EventEmitter {
         });
         if (!event) return;
 
-        let msg = `${event.name}\nE-ID:\t${event.id}`;
+        let msg = `${event.name}\n${event.description || ''}\nE-ID:\t${event.id}`;
         for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
             const party = event.partys[partyIndex - 1];
+            if (!party.partyMembers.length && !party.description) continue;
             if (party.isDone) msg += '~~';
-            msg += `\nGroup ${partyIndex}:`;
+            msg += `\nGroup ${partyIndex}: ${
+                party.description ? '(' + party.description + ')' : ''
+            }`;
             for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
                 const member = party.partyMembers[memberIndex - 1];
-                msg += `\n\t${member.memberNo} <:${member.class.icon}:${member.class.iconId}> <@${member.userId}>`;
+                msg += `\n\t#${member.memberNo} ${this._getIconStringFromClass(member.class)}[${
+                    member.charNo
+                }] <@${member.userId}>`;
             }
             if (party.isDone) msg += '~~';
         }
@@ -551,9 +636,7 @@ export class MemberEventFactory extends EventEmitter {
                         messageId: newMessage.id
                     }
                 });
-                for (const emote of Object.values(NUMERIC_EMOTES)) {
-                    await newMessage.react(emote.unicode);
-                }
+                await this._setReactions(newMessage, 'classes');
             }
         } else {
             const newMessage = await channel.send(msg);
@@ -565,9 +648,7 @@ export class MemberEventFactory extends EventEmitter {
                     messageId: newMessage.id
                 }
             });
-            for (const emote of Object.values(NUMERIC_EMOTES)) {
-                await newMessage.react(emote.unicode);
-            }
+            await this._setReactions(newMessage, 'classes');
         }
     }
 
@@ -684,8 +765,9 @@ export class MemberEventFactory extends EventEmitter {
         return partys[0];
     }
 
-    private _iconToNumber(reactCharNumberIcon: string): number | null {
-        switch (reactCharNumberIcon) {
+    private _iconToNumber(emoji: Emoji): number | null {
+        const hex = Buffer.from(emoji.name || '').toString('hex');
+        switch (hex) {
             case NUMERIC_EMOTES.one.hex:
                 return 1;
             case NUMERIC_EMOTES.two.hex:
@@ -747,6 +829,36 @@ export class MemberEventFactory extends EventEmitter {
             if (channel) await channel.messages.fetch();
         }
     }
+
+    private async _setReactions(message: Message, type: 'classes'): Promise<void>;
+    private async _setReactions(message: Message, type: 'numbers', count: number): Promise<void>;
+    private async _setReactions(
+        message: Message,
+        type: 'classes' | 'numbers',
+        count?: number
+    ): Promise<void> {
+        if (type === 'classes') {
+            const classes = await prismaClient.class.findMany();
+            const reactPromise = Promise.all([
+                ...classes.map(laClass =>
+                    laClass.iconId ? message.react(laClass.iconId) : undefined
+                ),
+                message.react('🚫')
+            ]);
+            await reactPromise;
+        } else {
+            const reactPromise = Promise.all(
+                Object.values(NUMERIC_EMOTES)
+                    .slice(0, count)
+                    .map(val => message.react(val.unicode))
+            );
+            await reactPromise;
+        }
+    }
+
+    private _getIconStringFromClass(laClass: Class): string {
+        return `<:${laClass.icon}:${laClass.iconId}>`;
+    }
 }
 
 export enum EMemberEvent {
@@ -788,7 +900,6 @@ export type TAddMember = {
     type: EMemberEvent.ADD_MEMBER;
     eventId: number;
     classIcon: string;
-    charNumber: number;
     userId: string;
 };
 export type TRemoveMemberByUserId = {
