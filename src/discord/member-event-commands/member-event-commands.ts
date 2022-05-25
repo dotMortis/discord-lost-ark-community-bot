@@ -26,7 +26,7 @@ export const ADD_MEMBER_EVENT: TMemberEventCommand = {
         const [trigger, command, classMapping] = args;
         if (!classMapping) return 'Error:\n```' + ADD_MEMBER_EVENT.desc[0] + '```';
         const [dds = 0, supps = 0, free = 0] = classMapping.split(':');
-        const name = args.slice(4).join(' ');
+        const name = args.slice(3).join(' ');
         if (name) {
             return discord.memberEventFactory
                 .action<TCreateEvent>({
