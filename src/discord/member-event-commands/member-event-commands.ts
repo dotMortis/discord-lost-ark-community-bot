@@ -16,10 +16,7 @@ import { Discord, TMemberEventCommand } from '../discord.model';
 export const ADD_MEMBER_EVENT: TMemberEventCommand = {
     command: 'create',
     desc: [
-        [
-            '!event create <dds:supps:free(3:1:0)> <name>',
-            'Erstellt ein Event mit eindeutigem Namen.'
-        ]
+        ['!event create <dds:supps:free(3:1:0)> <name>', 'Erstellt ein Event mit eindeutigem Namen']
     ],
     callback: async (
         msg: Message<boolean>,
@@ -54,7 +51,7 @@ export const ADD_MEMBER_EVENT: TMemberEventCommand = {
 
 export const REMOVE_MEMBER_EVENT: TMemberEventCommand = {
     command: 'remove',
-    desc: [['!event remove <eventId>', 'Löscht ein Event.']],
+    desc: [['!event remove <eventId>', 'Löscht ein Event']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -79,7 +76,7 @@ export const REMOVE_MEMBER_EVENT: TMemberEventCommand = {
 
 export const DESCRIPE_EVENT: TMemberEventCommand = {
     command: 'desc',
-    desc: [['!event desc <eventId> <description>', 'Setzt die Beschreibung eines Events.']],
+    desc: [['!event desc <eventId> <description>', 'Setzt die Beschreibung eines Events']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -106,7 +103,7 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
 
 export const DESCRIPE_EVENT_PARTY: TMemberEventCommand = {
     command: 'descp',
-    desc: [['!event descp <eventId> <partyNumber> <name>', 'Setzt die Beschreibung einer Party.']],
+    desc: [['!event descp <eventId> <partyNumber> <name>', 'Setzt die Beschreibung einer Party']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -138,7 +135,7 @@ export const SWITCH_MEMBERS_EVENT_PARTY: TMemberEventCommand = {
     desc: [
         [
             '!event switch <eventId> <#:#> <#:#>',
-            'Tauscht die Plätze zweier Spieler innerhalb eines Events.'
+            'Tauscht die Plätze zweier Spieler innerhalb eines Events'
         ]
     ],
     callback: async (
@@ -186,7 +183,7 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
     desc: [
         [
             '!event move <eventId> <#:#>',
-            'Scheibt einen SPiele rinnerhalb eines Events in eine andere Party.'
+            'Scheibt einen SPiele rinnerhalb eines Events in eine andere Party'
         ]
     ],
     callback: async (
@@ -220,7 +217,7 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
 
 export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
     command: 'kick',
-    desc: [['!event kick <eventId> <#:#>', 'Kickt einen Spieler aus einem Event.']],
+    desc: [['!event kick <eventId> <#:#>', 'Kickt einen Spieler aus einem Event']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -249,7 +246,7 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
 
 export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
     command: 'done',
-    desc: [['!event done <eventId> <partyNumber>', 'Setzt eine Party auf erledigt.']],
+    desc: [['!event done <eventId> <partyNumber>', 'Setzt eine Party auf erledigt']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
