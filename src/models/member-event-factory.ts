@@ -54,14 +54,12 @@ export class MemberEventFactory extends EventEmitter {
             | TEventIsDone;
     }>;
     private readonly _eventIdReg: RegExp;
-    private readonly _joinEventReg: RegExp;
     private readonly _discord: Discord;
 
     constructor(discord: Discord) {
         super();
         this._isRunning = false;
         this._eventIdReg = new RegExp(/E-ID:( +|\t)(?<id>[0-9]+)/);
-        this._joinEventReg = new RegExp(/E-ID:( +|\t)(?<id>1)\nChar-Nummer:(.+|\t)(?<char>[0-9]+)/);
         this._actionQueue = new Array<{
             uid: string;
             data:
@@ -717,15 +715,17 @@ export class MemberEventFactory extends EventEmitter {
         });
         if (!event) return;
 
-        let msg = `${event.isDone ? '~~' : ''}${event.name}${event.isDone ? '~~' : ''}\n${
-            event.description || ''
-        }\nE-ID:\t${event.id}`;
+        let msg = `${event.isDone ? '~~' : ''}__**${event.name}**__${
+            event.isDone ? '~~' : ''
+        } by <@${event.creatorId}>\n${
+            event.description ? '*' + event.description + '*' : ''
+        }\n||E-ID:\t${event.id}||`;
         for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
             const party = event.partys[partyIndex - 1];
             if (!party.partyMembers.length && !party.description) continue;
             if (party.isDone) msg += '~~';
             msg += `\nGroup ${partyIndex}: ${
-                party.description ? '(' + party.description + ')' : ''
+                party.description ? '(*' + party.description + '*)' : ''
             }`;
             for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
                 const member = party.partyMembers[memberIndex - 1];
