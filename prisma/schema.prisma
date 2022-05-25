@@ -34,18 +34,30 @@ model Config {
 }
 
 model Event {
-    id          Int     @id @default(autoincrement()) @db.UnsignedInt
-    description String? @db.VarChar(255)
-    channelId   String  @db.VarChar(255)
-    messageId   String? @db.VarChar(255)
+    id          Int         @id @default(autoincrement()) @db.UnsignedInt
+    description String?     @db.VarChar(255)
+    channelId   String      @db.VarChar(255)
+    messageId   String?     @db.VarChar(255)
     supps       Int
     dds         Int
     free        Int
     name        String
-    creatorId   String  @map("creator_id")
+    roles       EventRole[]
+    creatorId   String      @map("creator_id")
     partys      Party[]
 
     @@map("event")
+}
+
+model EventRole {
+    uid     String @id @default(uuid()) @db.Char(36)
+    name    String @db.VarChar(255)
+    id      String @db.VarChar(255)
+    event   Event  @relation(fields: [eventId], references: [id])
+    eventId Int    @map("event_id") @db.UnsignedInt
+
+    @@index([id, name])
+    @@map("event_role")
 }
 
 model Party {

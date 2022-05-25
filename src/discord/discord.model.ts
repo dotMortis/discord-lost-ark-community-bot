@@ -18,100 +18,6 @@ import { MemberEventFactory } from '../models/member-event-factory';
 import { COMMAND_COMMAND } from './deault-commands/command.command';
 import { getEmbedCalendar } from './embeds/calendar.embed';
 
-export type TCalCommand = {
-    desc: [string, string][];
-    command: string;
-    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
-};
-
-export type TMemberEventCommand = {
-    desc: [string, string][];
-    command: string;
-    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
-};
-
-export type TDefaultCommand = {
-    command: string;
-    minLength: number;
-    permission: PermissionResolvable | null;
-    desc: [string, string][];
-    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
-};
-
-export type TRoutine = (discord: Discord) => Promise<void>;
-
-export type TReaction = {
-    ident: string;
-    desc: [string, string][];
-    icons: string[];
-    text: string | ((discord: Discord) => string);
-    roles: string[];
-    addCallback: (
-        reaction: MessageReaction | PartialMessageReaction,
-        reactionHex: string,
-        reactionData: {
-            channelId: string | undefined;
-            messageId: string | undefined;
-            roles: Map<string, string>;
-            reaction: TReaction;
-        },
-        user: User | PartialUser,
-        discord: Discord
-    ) => Promise<void>;
-    removeCallback: (
-        reaction: MessageReaction | PartialMessageReaction,
-        reactionHex: string,
-        reactionData: {
-            channelId: string | undefined;
-            messageId: string | undefined;
-            roles: Map<string, string>;
-            reaction: TReaction;
-        },
-        user: User | PartialUser,
-        discord: Discord
-    ) => Promise<void>;
-};
-
-export type TAlert = {
-    ident: string;
-    icon: string;
-    desc: [string, string][];
-    role: string;
-    callback: (
-        alertData: {
-            channelId: string | undefined;
-            role: {
-                name: string;
-                id: string;
-            };
-            alert: TAlert;
-        },
-        discord: Discord
-    ) => Promise<void>;
-};
-
-export type TEventAlert = {
-    identEvent: string;
-    identAlert: string;
-    desc: [string, string][];
-    icon: string;
-    role: string;
-    callback: (
-        message: Message<boolean>,
-        eventAlertData: {
-            channelAlertId: string | undefined;
-            channelEventId: string | undefined;
-            role: {
-                name: string;
-                id: string;
-            };
-            eventAlert: TEventAlert;
-        },
-        discord: Discord,
-        alertChannel: TextChannel
-    ) => Promise<void>;
-};
-
 export class Discord {
     private _guildId: string;
     private readonly _prefix = '!dot';
@@ -134,6 +40,16 @@ export class Discord {
         commands.push(...this.eventAlerts.map(r => r.eventAlert.desc).flat());
         commands.push(
             ...Array.from(this._defaultCommands.values())
+                .map(command => command.desc)
+                .flat()
+        );
+        return commands;
+    }
+
+    get memberEventCommandsDesc(): [string, string][] {
+        const commands = new Array<[string, string]>();
+        commands.push(
+            ...Array.from(this.memberEvents.values())
                 .map(command => command.desc)
                 .flat()
         );
@@ -354,7 +270,18 @@ export class Discord {
                     const args = msg.content.split(' ');
                     const command = this.memberEvents.get(args[1]);
                     if (command) {
-                        await command.callback(msg, args, this);
+                        const result = await command.callback(msg, args, this);
+                        if (typeof result === 'string') {
+                            await msg.reply(result);
+                        } else {
+                            await msg.delete();
+                        }
+                    } else {
+                        const commands = this.memberEventCommandsDesc;
+                        let msgContent = '';
+                        for (const command of commands)
+                            msgContent += command[1] + ':\n```' + command[0] + '```';
+                        await msg.reply(msgContent);
                     }
                 } else if (!msg.content.trimStart().startsWith(this._prefix)) {
                     const args = msg.content.split(' ');
@@ -763,3 +690,101 @@ export class Discord {
 
     //#endregion
 }
+
+export type TCalCommand = {
+    desc: [string, string][];
+    command: string;
+    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
+};
+
+export type TMemberEventCommand = {
+    desc: [string, string][];
+    command: string;
+    callback: (
+        msg: Message<boolean>,
+        args: Array<string>,
+        discord: Discord
+    ) => Promise<void | string>;
+};
+
+export type TDefaultCommand = {
+    command: string;
+    minLength: number;
+    permission: PermissionResolvable | null;
+    desc: [string, string][];
+    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
+};
+
+export type TRoutine = (discord: Discord) => Promise<void>;
+
+export type TReaction = {
+    ident: string;
+    desc: [string, string][];
+    icons: string[];
+    text: string | ((discord: Discord) => string);
+    roles: string[];
+    addCallback: (
+        reaction: MessageReaction | PartialMessageReaction,
+        reactionHex: string,
+        reactionData: {
+            channelId: string | undefined;
+            messageId: string | undefined;
+            roles: Map<string, string>;
+            reaction: TReaction;
+        },
+        user: User | PartialUser,
+        discord: Discord
+    ) => Promise<void>;
+    removeCallback: (
+        reaction: MessageReaction | PartialMessageReaction,
+        reactionHex: string,
+        reactionData: {
+            channelId: string | undefined;
+            messageId: string | undefined;
+            roles: Map<string, string>;
+            reaction: TReaction;
+        },
+        user: User | PartialUser,
+        discord: Discord
+    ) => Promise<void>;
+};
+
+export type TAlert = {
+    ident: string;
+    icon: string;
+    desc: [string, string][];
+    role: string;
+    callback: (
+        alertData: {
+            channelId: string | undefined;
+            role: {
+                name: string;
+                id: string;
+            };
+            alert: TAlert;
+        },
+        discord: Discord
+    ) => Promise<void>;
+};
+
+export type TEventAlert = {
+    identEvent: string;
+    identAlert: string;
+    desc: [string, string][];
+    icon: string;
+    role: string;
+    callback: (
+        message: Message<boolean>,
+        eventAlertData: {
+            channelAlertId: string | undefined;
+            channelEventId: string | undefined;
+            role: {
+                name: string;
+                id: string;
+            };
+            eventAlert: TEventAlert;
+        },
+        discord: Discord,
+        alertChannel: TextChannel
+    ) => Promise<void>;
+};
