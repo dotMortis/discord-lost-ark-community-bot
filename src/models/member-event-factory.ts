@@ -135,6 +135,7 @@ export class MemberEventFactory extends EventEmitter {
         await this._initClassIcons();
         await this._fetchAllMessages();
         this._discord.bot.on('messageReactionAdd', async (reaction, user) => {
+            let relevatnReaction = false;
             try {
                 if (user.id === this._discord.bot.user?.id) return;
                 if (reaction.message.guildId && reaction.emoji.name) {
@@ -145,6 +146,7 @@ export class MemberEventFactory extends EventEmitter {
                         const regResult = reaction.message.content?.match(this._eventIdReg);
                         if (regResult?.groups?.id) {
                             const event = await this._getEventFromId(Number(regResult.groups.id));
+                            relevatnReaction = true;
                             await this.action<TAddMember>({
                                 classIcon: reaction.emoji.name,
                                 eventId: event.id,
@@ -156,6 +158,7 @@ export class MemberEventFactory extends EventEmitter {
                         const regResult = reaction.message.content?.match(this._eventIdReg);
                         if (regResult?.groups?.id) {
                             const event = await this._getEventFromId(Number(regResult.groups.id));
+                            relevatnReaction = true;
                             let msg = `${event.name}\nE-ID:\t${event.id}\nBitte reagieren mit der Nummer des zu löschenden Characters.`;
                             const partyMembersOfUser = new Array<
                                 PartyMember & { class: Class; partyNumber: number }
@@ -190,6 +193,7 @@ export class MemberEventFactory extends EventEmitter {
                     const charNumber = this._iconToNumber(reaction.emoji);
                     if (regResult?.groups?.id && charNumber != null) {
                         const event = await this._getEventFromId(Number(regResult.groups.id));
+                        relevatnReaction = true;
                         await this.action<TRemoveMemberByUserId>({
                             charNumber,
                             eventId: event.id,
@@ -203,7 +207,7 @@ export class MemberEventFactory extends EventEmitter {
             } finally {
                 if (user.id !== this._discord.bot.user?.id && !reaction.message.guildId)
                     await reaction.message.delete();
-                else if (user.id !== this._discord.bot.user?.id)
+                else if (user.id !== this._discord.bot.user?.id && relevatnReaction)
                     await reaction.users.remove(user.id);
             }
         });
