@@ -50,7 +50,8 @@ export class MemberEventFactory extends EventEmitter {
             | TRemoveMemberByPartyNumber
             | TSwitchMembers
             | TMoveMember
-            | TPartyIsDone;
+            | TPartyIsDone
+            | TEventIsDone;
     }>;
     private readonly _eventIdReg: RegExp;
     private readonly _joinEventReg: RegExp;
@@ -73,7 +74,8 @@ export class MemberEventFactory extends EventEmitter {
                 | TRemoveMemberByPartyNumber
                 | TSwitchMembers
                 | TMoveMember
-                | TPartyIsDone;
+                | TPartyIsDone
+                | TEventIsDone;
         }>();
         this._discord = discord;
         this.on('ACTION', async data => {
@@ -277,7 +279,7 @@ export class MemberEventFactory extends EventEmitter {
         return event.id;
     }
 
-    private async _setIsDone(eventId: number, partyNumber: number): Promise<number> {
+    private async _setPartyIsDone(eventId: number, partyNumber: number): Promise<number> {
         const partys = await prismaClient.party.findMany({
             where: {
                 eventId
@@ -299,6 +301,24 @@ export class MemberEventFactory extends EventEmitter {
                 break;
             }
         }
+        return eventId;
+    }
+
+    private async _setEventIsDone(eventId: number): Promise<number> {
+        const event = await prismaClient.event.findFirst({
+            where: {
+                id: eventId
+            }
+        });
+        if (event)
+            await prismaClient.event.update({
+                where: {
+                    id: event.id
+                },
+                data: {
+                    isDone: !event.isDone
+                }
+            });
         return eventId;
     }
 
@@ -386,6 +406,7 @@ export class MemberEventFactory extends EventEmitter {
                     return member.userId === userId;
                 }) > -1;
             if (
+                !party.isDone &&
                 !isUserInParty &&
                 party.partyMembers.length < maxMembers &&
                 currRoleCount < maxRoleCount
@@ -648,7 +669,11 @@ export class MemberEventFactory extends EventEmitter {
                             break;
                         }
                         case EMemberEvent.PARTY_IS_DONE: {
-                            eventId = await this._setIsDone(data.eventId, data.partyNumber);
+                            eventId = await this._setPartyIsDone(data.eventId, data.partyNumber);
+                            break;
+                        }
+                        case EMemberEvent.EVENT_IS_DONE: {
+                            eventId = await this._setEventIsDone(data.eventId);
                             break;
                         }
                         default:
@@ -692,7 +717,9 @@ export class MemberEventFactory extends EventEmitter {
         });
         if (!event) return;
 
-        let msg = `${event.name}\n${event.description || ''}\nE-ID:\t${event.id}`;
+        let msg = `${event.isDone ? '~~' : ''}${event.name}${event.isDone ? '~~' : ''}\n${
+            event.description || ''
+        }\nE-ID:\t${event.id}`;
         for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
             const party = event.partys[partyIndex - 1];
             if (!party.partyMembers.length && !party.description) continue;
@@ -778,7 +805,8 @@ export class MemberEventFactory extends EventEmitter {
     > {
         const event = await prismaClient.event.findFirst({
             where: {
-                id: eventId
+                id: eventId,
+                isDone: false
             },
             include: {
                 partys: {
@@ -976,7 +1004,8 @@ export enum EMemberEvent {
     REMOVE_MEMBER_BY_PARTY_NUMBER = 'REMOVE_MEMBER_BY_PARTY_NUMBER',
     MOVE_MEMBER = 'MOVE_MEMBER',
     SWITCH_MEMBERS = 'SWITCH_MEMBERS',
-    PARTY_IS_DONE = 'PARTY_IS_DONE'
+    PARTY_IS_DONE = 'PARTY_IS_DONE',
+    EVENT_IS_DONE = 'EVENT_IS_DONE'
 }
 
 export type TCreateEvent = {
@@ -1038,4 +1067,8 @@ export type TPartyIsDone = {
     type: EMemberEvent.PARTY_IS_DONE;
     eventId: number;
     partyNumber: number;
+};
+export type TEventIsDone = {
+    type: EMemberEvent.EVENT_IS_DONE;
+    eventId: number;
 };

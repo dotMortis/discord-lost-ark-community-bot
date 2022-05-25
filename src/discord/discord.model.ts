@@ -281,7 +281,7 @@ export class Discord {
                         let msgContent = '';
                         for (const command of commands)
                             msgContent += command[1] + ':\n```' + command[0] + '```';
-                        await msg.reply(msgContent);
+                        await msg.author.send(msgContent);
                     }
                 } else if (!msg.content.trimStart().startsWith(this._prefix)) {
                     const args = msg.content.split(' ');

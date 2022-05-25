@@ -3,6 +3,7 @@ import { Message } from 'discord.js';
 import {
     EMemberEvent,
     TCreateEvent,
+    TEventIsDone,
     TMoveMember,
     TPartyIsDone,
     TRemoveEvent,
@@ -245,8 +246,8 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
 };
 
 export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
-    command: 'done',
-    desc: [['!event done <eventId> <partyNumber>', 'Setzt eine Party auf erledigt']],
+    command: 'party_done',
+    desc: [['!event party_done <eventId> <partyNumber>', 'Setzt eine Party auf erledigt']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -266,6 +267,31 @@ export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
                 });
         } else {
             return 'Error:\n```' + IS_DONE_EVENT_PARTY.desc[0] + '```';
+        }
+    }
+};
+
+export const IS_DONE_EVENT: TMemberEventCommand = {
+    command: 'event_done',
+    desc: [['!event event_done <eventId>', 'Setzt ein Event auf erledigt']],
+    callback: async (
+        msg: Message<boolean>,
+        args: string[],
+        discord: Discord
+    ): Promise<void | string> => {
+        const [trigger, command, eventId] = args;
+        if (Number(eventId)) {
+            await discord.memberEventFactory
+                .action<TEventIsDone>({
+                    type: EMemberEvent.EVENT_IS_DONE,
+                    eventId: Number(eventId)
+                })
+                .catch(e => {
+                    logger.error(e);
+                    return 'Error:\n```' + IS_DONE_EVENT.desc[0] + '```';
+                });
+        } else {
+            return 'Error:\n```' + IS_DONE_EVENT.desc[0] + '```';
         }
     }
 };
