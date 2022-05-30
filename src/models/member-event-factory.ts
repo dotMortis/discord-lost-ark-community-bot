@@ -575,7 +575,7 @@ export class MemberEventFactory extends EventEmitter {
                 if (duplicatePartyMember) return eventId;
                 partyToMove.partyMembers.sort((a, b) => a.memberNo - b.memberNo);
                 let memberNo = 1;
-                for (const partyMember of party.partyMembers) {
+                for (const partyMember of partyToMove.partyMembers) {
                     if (partyMember.memberNo !== memberNo) break;
                     memberNo++;
                 }
