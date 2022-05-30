@@ -573,12 +573,19 @@ export class MemberEventFactory extends EventEmitter {
                     partyMember => partyMember.userId === partyMemberToMove?.userId
                 );
                 if (duplicatePartyMember) return eventId;
+                partyToMove.partyMembers.sort((a, b) => a.memberNo - b.memberNo);
+                let memberNo = 1;
+                for (const partyMember of party.partyMembers) {
+                    if (partyMember.memberNo !== memberNo) break;
+                    memberNo++;
+                }
                 await prismaClient.partyMember.update({
                     where: {
                         uid: partyMemberToMove.uid
                     },
                     data: {
-                        partyId: partyToMove.id
+                        partyId: partyToMove.id,
+                        memberNo
                     }
                 });
                 break;
