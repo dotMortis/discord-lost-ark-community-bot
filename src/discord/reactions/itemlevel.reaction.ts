@@ -10,10 +10,11 @@ export const ITEMLEVEL_REACTION: TReaction = {
         '35efb88fe283a3',
         '36efb88fe283a3',
         '37efb88fe283a3',
-        '38efb88fe283a3'
+        '38efb88fe283a3',
+        '39efb88fe283a3'
     ],
     ident: 'LEVEL_R',
-    roles: ['Tier1', 'Tier2', '1302+', '1340+', '1370+', '1385+', '1400+', '1415+'],
+    roles: ['Tier1', 'Tier2', '1302+', '1340+', '1370+', '1385+', '1400+', '1415+', '1445+'],
     desc: [['!dot assign LEVEL_R', 'Setzt den aktiven Channel für die Itemlevel-Abo-Nachricht']],
     text:
         'Reagiere auf alle Itemlevel Bereiche für welche Du aktivitäten abschließen möchtest.' +
@@ -24,7 +25,8 @@ export const ITEMLEVEL_REACTION: TReaction = {
         '\n:five:\t1370+' +
         '\n:six:\t1385+' +
         '\n:seven:\t1400+' +
-        '\n:eight:\t1415+',
+        '\n:eight:\t1415+' +
+        '\n:nine:\t1445+',
 
     addCallback: async function (
         reaction: MessageReaction | PartialMessageReaction,
