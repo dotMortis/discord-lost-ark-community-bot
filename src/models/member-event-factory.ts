@@ -1,12 +1,13 @@
 import { logger } from '@bits_devel/logger';
-import { Class, Event, Party, PartyMember, Role } from '@prisma/client';
+import { Class, Event, EventRole, Party, PartyMember, Role } from '@prisma/client';
 import { path as rootPath } from 'app-root-path';
-import { Emoji, Message, TextChannel } from 'discord.js';
+import { Emoji, Message, MessageEmbed, PartialMessage, TextChannel } from 'discord.js';
 import EventEmitter from 'events';
 import path from 'path';
 import { v4 } from 'uuid';
 import { prismaClient } from '../db/prisma-client';
 import { Discord } from '../discord/discord.model';
+import { getEmbedMemberEvent } from '../discord/embeds/member-event.embed';
 
 export const NUMERIC_EMOTES = {
     one: {
@@ -143,9 +144,9 @@ export class MemberEventFactory extends EventEmitter {
                         _ => null
                     );
                     if (laClass != null) {
-                        const regResult = reaction.message.content?.match(this._eventIdReg);
-                        if (regResult?.groups?.id) {
-                            const event = await this._getEventFromId(Number(regResult.groups.id));
+                        const eventId = this._getEventIdFromMessage(reaction.message);
+                        if (eventId) {
+                            const event = await this._getEventFromId(eventId);
                             relevatnReaction = true;
                             await this.action<TAddMember>({
                                 classIcon: reaction.emoji.name,
@@ -155,9 +156,9 @@ export class MemberEventFactory extends EventEmitter {
                             });
                         }
                     } else if (Buffer.from(reaction.emoji.name).toString('hex') === 'f09f9aab') {
-                        const regResult = reaction.message.content?.match(this._eventIdReg);
-                        if (regResult?.groups?.id) {
-                            const event = await this._getEventFromId(Number(regResult.groups.id));
+                        const eventId = this._getEventIdFromMessage(reaction.message);
+                        if (eventId) {
+                            const event = await this._getEventFromId(eventId);
                             relevatnReaction = true;
                             let msg = `${event.name}\nE-ID:\t${event.id}\nBitte reagieren mit der Nummer des zu löschenden Characters.`;
                             const partyMembersOfUser = new Array<
@@ -180,7 +181,7 @@ export class MemberEventFactory extends EventEmitter {
                             if (!partyMembersOfUser.length) return;
                             partyMembersOfUser.sort((a, b) => a.charNo - b.charNo);
                             partyMembersOfUser.forEach(partyMember => {
-                                msg += `\n#${partyMember.charNo} ${this._getIconStringFromClass(
+                                msg += `\n#${partyMember.charNo} ${this.getIconStringFromClass(
                                     partyMember.class
                                 )} - Party ${partyMember.partyNumber}`;
                             });
@@ -189,10 +190,10 @@ export class MemberEventFactory extends EventEmitter {
                         }
                     }
                 } else if (reaction.emoji) {
-                    const regResult = reaction.message.content?.match(this._eventIdReg);
+                    const eventId = this._getEventIdFromMessage(reaction.message);
                     const charNumber = this._iconToNumber(reaction.emoji);
-                    if (regResult?.groups?.id && charNumber != null) {
-                        const event = await this._getEventFromId(Number(regResult.groups.id));
+                    if (eventId && charNumber != null) {
+                        const event = await this._getEventFromId(eventId);
                         relevatnReaction = true;
                         await this.action<TRemoveMemberByUserId>({
                             charNumber,
@@ -211,25 +212,6 @@ export class MemberEventFactory extends EventEmitter {
                     await reaction.users.remove(user.id);
             }
         });
-        this._discord.bot.on('messageReactionRemove', async (reaction, user) => {
-            try {
-                if (user.id === this._discord.bot.user?.id) return;
-                const charNumber = this._iconToNumber(reaction.emoji);
-                if (charNumber != null) {
-                    const regResult = reaction.message.content?.match(this._eventIdReg);
-                    if (regResult?.groups?.id) {
-                        await this.action<TRemoveMemberByUserId>({
-                            charNumber,
-                            eventId: Number(regResult.groups.id),
-                            type: EMemberEvent.REMOVE_MEMBER_BY_USER_ID,
-                            userId: user.id
-                        });
-                    }
-                }
-            } catch (e) {
-                logger.error(e);
-            }
-        });
         await this.updateAllEvents();
     }
 
@@ -238,6 +220,10 @@ export class MemberEventFactory extends EventEmitter {
         for (const event of events) {
             await this._updateEvent(event.id);
         }
+    }
+
+    public getIconStringFromClass(laClass: Class): string {
+        return `<:${laClass.icon}:${laClass.iconId}>`;
     }
 
     private async _createEvent(
@@ -278,6 +264,7 @@ export class MemberEventFactory extends EventEmitter {
                 }
             }
         });
+        await this._createEventRole(event.id);
         return event.id;
     }
 
@@ -330,6 +317,7 @@ export class MemberEventFactory extends EventEmitter {
                 id: eventId
             }
         });
+        await this._removeEventRole(event.id);
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event?.messageId) {
             const message = channel.messages.cache.get(event.messageId);
@@ -427,6 +415,7 @@ export class MemberEventFactory extends EventEmitter {
                 userId
             );
         }
+        await this._addEventRoleToUser(event.id, userId);
         return eventId;
     }
 
@@ -444,6 +433,7 @@ export class MemberEventFactory extends EventEmitter {
                 userId
             }
         });
+        await this._removeEventRoleFromUser(eventId, userId);
         return eventId;
     }
 
@@ -460,6 +450,7 @@ export class MemberEventFactory extends EventEmitter {
                     uid: partyMember.uid
                 }
             });
+            await this._removeEventRoleFromUser(eventId, partyMember.userId);
         }
         return eventId;
     }
@@ -726,73 +717,49 @@ export class MemberEventFactory extends EventEmitter {
         });
         if (!event) return;
 
-        let msg = `${event.isDone ? '~~' : ''}__**${event.name}**__${
-            event.isDone ? '~~' : ''
-        } by <@${event.creatorId}>\n${
-            event.description ? '*' + event.description + '*' : ''
-        }\n||E-ID:\t${event.id}||`;
-        for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
-            const party = event.partys[partyIndex - 1];
-            if (!party.partyMembers.length && !party.description) continue;
-            if (party.isDone) msg += '~~';
-            msg += `\nGroup ${partyIndex}: ${
-                party.description ? '(*' + party.description + '*)' : ''
-            }`;
-            for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
-                const member = party.partyMembers[memberIndex - 1];
-                msg += `\n\t#${member.memberNo} ${this._getIconStringFromClass(member.class)}[${
-                    member.charNo
-                }] <@${member.userId}>`;
-            }
-            if (party.isDone) msg += '~~';
-        }
+        const embed = await getEmbedMemberEvent(event, this);
 
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
             const message = channel.messages.cache.get(event.messageId);
-            if (message) await message.edit(msg);
-            else {
-                const newMessage = await channel.send(msg);
-                await prismaClient.event.update({
-                    where: {
-                        id: eventId
-                    },
-                    data: {
-                        messageId: newMessage.id
-                    }
-                });
-                const thread = await newMessage.startThread({
-                    name: event.name,
-                    autoArchiveDuration: 'MAX'
-                });
-                let threadMsg = '';
-                for (const role of event.roles) {
-                    threadMsg += `<@&${role.id}> `;
-                }
-                if (threadMsg) thread.send(threadMsg);
-                await this._setReactions(newMessage, 'classes');
+            if (message) await message.edit({ content: '', embeds: [embed] });
+            else await this._createEventMessage(event, channel, embed);
+        } else await this._createEventMessage(event, channel, embed);
+    }
+
+    private async _createEventMessage(
+        event: Event & {
+            roles: EventRole[];
+            partys: (Party & {
+                partyMembers: (PartyMember & {
+                    class: Class;
+                })[];
+            })[];
+        },
+        channel: TextChannel,
+        embed: MessageEmbed
+    ): Promise<void> {
+        const newMessage = await channel.send({ embeds: [embed] });
+        await prismaClient.event.update({
+            where: {
+                id: event.id
+            },
+            data: {
+                messageId: newMessage.id
             }
-        } else {
-            const newMessage = await channel.send(msg);
-            await prismaClient.event.update({
-                where: {
-                    id: eventId
-                },
-                data: {
-                    messageId: newMessage.id
-                }
-            });
-            const thread = await newMessage.startThread({
-                name: event.name,
-                autoArchiveDuration: 'MAX'
-            });
-            let threadMsg = '';
-            for (const role of event.roles) {
-                threadMsg += `<@&${role.id}> `;
-            }
-            if (threadMsg) thread.send(threadMsg);
-            await this._setReactions(newMessage, 'classes');
+        });
+        const thread = await newMessage.startThread({
+            name: event.name,
+            autoArchiveDuration: 'MAX'
+        });
+        const newThreadMessage = await thread.send(`E-ID:\t${event.id}`);
+        let threadMsg = '';
+        for (const role of event.roles) {
+            threadMsg += `<@&${role.id}> `;
         }
+        if (threadMsg) thread.send(threadMsg);
+        await this._setReactions(newMessage, 'classes');
+        await this._setReactions(newThreadMessage, 'classes');
     }
 
     private async _getClassFromIcon(classIcon: string): Promise<Class> {
@@ -1000,8 +967,34 @@ export class MemberEventFactory extends EventEmitter {
         }
     }
 
-    private _getIconStringFromClass(laClass: Class): string {
-        return `<:${laClass.icon}:${laClass.iconId}>`;
+    private _getEventIdFromMessage(message: Message<boolean> | PartialMessage): number | null {
+        let regResult = message.content?.match(this._eventIdReg);
+        if (!regResult) {
+            regResult = message.embeds[0]?.description?.match(this._eventIdReg) || null;
+        }
+        const eventId = Number(regResult?.groups?.id);
+        return eventId || null;
+    }
+
+    private async _createEventRole(eventId: number): Promise<void> {
+        await this._discord.guild.roles.create({
+            name: `event_${eventId}`
+        });
+    }
+
+    private async _removeEventRole(eventId: number): Promise<void> {
+        const role = this._discord.guild.roles.cache.find(role => role.name === `event_${eventId}`);
+        if (role) await role.delete();
+    }
+
+    private async _addEventRoleToUser(eventId: number, userId: string): Promise<void> {
+        const role = this._discord.guild.roles.cache.find(role => role.name === `event_${eventId}`);
+        if (role) await this._discord.guild.members.cache.get(userId)?.roles.add(role);
+    }
+
+    private async _removeEventRoleFromUser(eventId: number, userId: string): Promise<void> {
+        const role = this._discord.guild.roles.cache.find(role => role.name === `event_${eventId}`);
+        if (role) await this._discord.guild.members.cache.get(userId)?.roles.remove(role);
     }
 }
 
