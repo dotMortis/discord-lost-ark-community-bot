@@ -27,46 +27,37 @@ export const getEmbedMemberEvent = async (
     for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
         const party = event.partys[partyIndex - 1];
         if (!party.partyMembers.length && !party.description) continue;
-        if (partyIndex > 1) embed.addField('\u200B', '\u200B');
         let groupTitle = '';
         if (party.isDone) groupTitle += '~~';
         groupTitle += `Group ${partyIndex}`;
         if (party.isDone) groupTitle += '~~';
-        embed.addField(
-            groupTitle,
-            `${party.description ? '(*' + party.description + '*)' : '\u200B'}`,
-            true
-        );
-        let memberValue = '';
-        let column = 0;
-        for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
-            if (memberIndex % 4 === 1 && memberIndex !== 1) {
-                embed.addField('\u200B', '\u200B', true);
-            }
-            if (memberIndex % 2 === 1) {
-                memberValue = party.isDone ? '~~' : '';
-                const member = party.partyMembers[memberIndex - 1];
-                memberValue += `#${member.memberNo} ${memberEventFactory.getIconStringFromClass(
-                    member.class
-                )}[${member.charNo}] <@${member.userId}>`;
-                if (party.isDone) memberValue += '~~';
-                if (memberIndex === party.partyMembers.length) {
-                    embed.addField('\u200B', memberValue, true);
-                    column++;
-                }
-            } else {
-                memberValue += party.isDone ? '\n~~' : '\n';
-                const member = party.partyMembers[memberIndex - 1];
-                memberValue += `#${member.memberNo} ${memberEventFactory.getIconStringFromClass(
-                    member.class
-                )}[${member.charNo}] <@${member.userId}>`;
-                if (party.isDone) memberValue += '~~';
-                embed.addField('\u200B', memberValue, true);
-                column++;
-            }
 
-            if (column % 2 === 1 && memberIndex === party.partyMembers.length) {
-                embed.addField('\u200B', '\u200B', true);
+        let memberValue = '';
+        const maxColumnSize = 4;
+        let columnCount = 1;
+        for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
+            memberValue += party.isDone ? '\n~~' : '\n';
+            const member = party.partyMembers[memberIndex - 1];
+            memberValue += `#${member.memberNo} ${memberEventFactory.getIconStringFromClass(
+                member.class
+            )}[${member.charNo}] <@${member.userId}>`;
+            if (party.isDone) memberValue += '~~';
+
+            if (memberIndex % maxColumnSize === 0 || memberIndex === party.partyMembers.length) {
+                if (columnCount === 1) {
+                    embed.addField(
+                        groupTitle +
+                            `\t${party.description ? '(*' + party.description + '*)' : ''}`,
+                        memberValue,
+                        true
+                    );
+                    memberValue = '';
+                } else {
+                    embed.addField('\u200B', memberValue, true);
+                    if (columnCount % 2 === 0) embed.addField('\u200B', '\u200B');
+                    memberValue = '';
+                }
+                columnCount++;
             }
         }
     }
