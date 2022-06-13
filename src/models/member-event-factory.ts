@@ -218,7 +218,7 @@ export class MemberEventFactory extends EventEmitter {
     public async updateAllEvents(): Promise<void> {
         const events = await prismaClient.event.findMany({});
         for (const event of events) {
-            await this._updateEvent(event.id);
+            await this._updateEvent(event.id, true);
         }
     }
 
@@ -433,7 +433,15 @@ export class MemberEventFactory extends EventEmitter {
                 userId
             }
         });
-        await this._removeEventRoleFromUser(eventId, userId);
+        const memberChars = await prismaClient.partyMember.findMany({
+            where: {
+                party: {
+                    eventId
+                },
+                userId
+            }
+        });
+        if (!memberChars.length) await this._removeEventRoleFromUser(eventId, userId);
         return eventId;
     }
 
@@ -450,7 +458,16 @@ export class MemberEventFactory extends EventEmitter {
                     uid: partyMember.uid
                 }
             });
-            await this._removeEventRoleFromUser(eventId, partyMember.userId);
+            const memberChars = await prismaClient.partyMember.findMany({
+                where: {
+                    party: {
+                        eventId
+                    },
+                    userId: partyMember.userId
+                }
+            });
+            if (!memberChars.length)
+                await this._removeEventRoleFromUser(eventId, partyMember.userId);
         }
         return eventId;
     }
@@ -680,7 +697,7 @@ export class MemberEventFactory extends EventEmitter {
                             throw new Error('Not implemented');
                     }
                     this.emitActionEnd(data.type, actionData);
-                    if (eventId != null) await this._updateEvent(eventId);
+                    if (eventId != null) await this._updateEvent(eventId, false);
                 } catch (error: any) {
                     this.emitActionEnd(actionData.data.type, { ...actionData, error });
                     logger.error(error);
@@ -691,7 +708,7 @@ export class MemberEventFactory extends EventEmitter {
         this._isRunning = false;
     }
 
-    private async _updateEvent(eventId: number): Promise<void> {
+    private async _updateEvent(eventId: number, fetchEvent: boolean): Promise<void> {
         const event = await prismaClient.event.findFirst({
             where: {
                 id: eventId
@@ -722,8 +739,21 @@ export class MemberEventFactory extends EventEmitter {
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
             const message = channel.messages.cache.get(event.messageId);
-            if (message) await message.edit({ content: '', embeds: [embed] });
-            else await this._createEventMessage(event, channel, embed);
+            if (message) {
+                await message.edit({ content: null, embeds: [embed] });
+                if (fetchEvent) {
+                    await message.thread?.messages.fetch();
+                    const role = this._discord.guild.roles.cache.find(
+                        role => `event_${eventId}` === role.name
+                    );
+                    if (!role) {
+                        await this._createEventRole(eventId);
+                    }
+                    for (const member of event.partys.map(party => party.partyMembers).flat()) {
+                        await this._addEventRoleToUser(eventId, member.userId);
+                    }
+                }
+            } else await this._createEventMessage(event, channel, embed);
         } else await this._createEventMessage(event, channel, embed);
     }
 
@@ -989,7 +1019,10 @@ export class MemberEventFactory extends EventEmitter {
 
     private async _addEventRoleToUser(eventId: number, userId: string): Promise<void> {
         const role = this._discord.guild.roles.cache.find(role => role.name === `event_${eventId}`);
-        if (role) await this._discord.guild.members.cache.get(userId)?.roles.add(role);
+        if (role) {
+            const user = this._discord.guild.members.cache.get(userId);
+            await user?.roles.add(role);
+        }
     }
 
     private async _removeEventRoleFromUser(eventId: number, userId: string): Promise<void> {

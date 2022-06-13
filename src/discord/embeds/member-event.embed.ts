@@ -13,10 +13,10 @@ export const getEmbedMemberEvent = async (
     },
     memberEventFactory: MemberEventFactory
 ) => {
-    const title = `${event.isDone ? '~~' : ''}__**${event.name}**__${
-        event.isDone ? '~~' : ''
-    } by <@${event.creatorId}>`;
-    const description = `${event.description ? '*' + event.description + '*' : ''}`;
+    const title = `${event.isDone ? '~~' : ''}__**${event.name}**__${event.isDone ? '~~' : ''}`;
+    const description = `*by <@${event.creatorId}>${
+        event.description ? '\n\n' + event.description + '*\n' : '*\n'
+    }`;
     const id = `||E-ID:\t${event.id}||`;
 
     const embed = new MessageEmbed();
@@ -38,6 +38,7 @@ export const getEmbedMemberEvent = async (
             true
         );
         let memberValue = '';
+        let column = 0;
         for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
             if (memberIndex % 4 === 1 && memberIndex !== 1) {
                 embed.addField('\u200B', '\u200B', true);
@@ -49,6 +50,10 @@ export const getEmbedMemberEvent = async (
                     member.class
                 )}[${member.charNo}] <@${member.userId}>`;
                 if (party.isDone) memberValue += '~~';
+                if (memberIndex === party.partyMembers.length) {
+                    embed.addField('\u200B', memberValue, true);
+                    column++;
+                }
             } else {
                 memberValue += party.isDone ? '\n~~' : '\n';
                 const member = party.partyMembers[memberIndex - 1];
@@ -57,6 +62,11 @@ export const getEmbedMemberEvent = async (
                 )}[${member.charNo}] <@${member.userId}>`;
                 if (party.isDone) memberValue += '~~';
                 embed.addField('\u200B', memberValue, true);
+                column++;
+            }
+
+            if (column % 2 === 1 && memberIndex === party.partyMembers.length) {
+                embed.addField('\u200B', '\u200B', true);
             }
         }
     }

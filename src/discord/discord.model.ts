@@ -173,7 +173,8 @@ export class Discord {
                 'GUILDS',
                 'GUILD_MESSAGES',
                 'GUILD_MESSAGE_REACTIONS',
-                'DIRECT_MESSAGE_REACTIONS'
+                'DIRECT_MESSAGE_REACTIONS',
+                'GUILD_MEMBERS'
             ]
         });
     }
@@ -201,6 +202,7 @@ export class Discord {
 
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
+        await this.guild.members.fetch();
         this._initCommands(defaultCommands, calCommands, memberEvents);
         await this._initChannels();
         await this._initReactions(reactions);
