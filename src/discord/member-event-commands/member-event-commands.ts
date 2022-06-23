@@ -17,7 +17,10 @@ import { Discord, TMemberEventCommand } from '../discord.model';
 export const ADD_MEMBER_EVENT: TMemberEventCommand = {
     command: 'create',
     desc: [
-        ['!event create <dds:supps:free(3:1:0)> <name>', 'Erstellt ein Event mit eindeutigem Namen']
+        [
+            '!event create <dds:supps:free> <name>',
+            'Erstellt ein Event mit eindeutigem Namen im ausgeführten Channel (!event create 3:1:0 My Event)'
+        ]
     ],
     callback: async (
         msg: Message<boolean>,
@@ -104,7 +107,7 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
 
 export const DESCRIPE_EVENT_PARTY: TMemberEventCommand = {
     command: 'descp',
-    desc: [['!event descp <eventId> <partyNumber> <name>', 'Setzt die Beschreibung einer Party']],
+    desc: [['!event descp <eventId> <partyId> <name>', 'Setzt die Beschreibung einer Party']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -135,7 +138,7 @@ export const SWITCH_MEMBERS_EVENT_PARTY: TMemberEventCommand = {
     command: 'switch',
     desc: [
         [
-            '!event switch <eventId> <#:#> <#:#>',
+            '!event switch <eventId> <partyId1:memberId1> <partyId2:memberId2>',
             'Tauscht die Plätze zweier Spieler innerhalb eines Events'
         ]
     ],
@@ -183,8 +186,8 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
     command: 'move',
     desc: [
         [
-            '!event move <eventId> <#:#>',
-            'Scheibt einen SPiele rinnerhalb eines Events in eine andere Party'
+            '!event move <eventId> <partyIdOld:memberId> <partyIdNew>',
+            'Schiebt einen Spieler innerhalb eines Events in eine andere Party'
         ]
     ],
     callback: async (
@@ -218,7 +221,7 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
 
 export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
     command: 'kick',
-    desc: [['!event kick <eventId> <#:#>', 'Kickt einen Spieler aus einem Event']],
+    desc: [['!event kick <eventId> <partyId:memberId>', 'Kickt einen Spieler aus einem Event']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
@@ -247,7 +250,7 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
 
 export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
     command: 'party_done',
-    desc: [['!event party_done <eventId> <partyNumber>', 'Setzt eine Party auf erledigt']],
+    desc: [['!event party_done <eventId> <partyId>', 'Setzt eine Party auf erledigt']],
     callback: async (
         msg: Message<boolean>,
         args: string[],
