@@ -1,16 +1,13 @@
 import { MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
 import { Discord, TReaction } from '../discord.model';
+import { getEmbedEventAboReaction } from '../embeds/event-abo.embed';
 
 export const ALERT_REACTION: TReaction = {
     icons: ['f09f8eb4', 'f09f8e81', 'f09f8f9defb88f'],
     ident: 'ALERT_R',
     roles: ['_SERIA', '_LEG_CARD', '_ADVENTURE'],
     desc: [['!dot assign ALERT_R', 'Setzt den aktiven Channel für die Alert-Abo-Nachricht']],
-    text:
-        'Hier kannst du verschiedene Benachrichtigungen für wichtige LostArk Events abonieren.' +
-        '\n:flower_playing_cards:\tSeria Sammelkarte' +
-        '\n:gift:\tLegendäre Geschenke' +
-        '\n:island:\tAbenteuer Inseln',
+    text: getEmbedEventAboReaction,
     addCallback: async function (
         reaction: MessageReaction | PartialMessageReaction,
         reactionHex: string,
