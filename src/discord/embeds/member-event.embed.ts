@@ -60,6 +60,7 @@ export const getEmbedMemberEvent = async (
                 columnCount++;
             }
         }
+        if (partyIndex < event.partys.length) embed.addField('\u200B', '\u200B');
     }
     embed.setFooter({ text: 'Wahrnehmung des Termins ist bei Anmeldung verpflichtend!' });
     return embed;
