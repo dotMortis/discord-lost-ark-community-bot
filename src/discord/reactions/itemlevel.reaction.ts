@@ -1,5 +1,6 @@
 import { MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
 import { Discord, TReaction } from '../discord.model';
+import { getEmbedItemLevelReaction } from '../embeds/content-abo.embed';
 
 export const ITEMLEVEL_REACTION: TReaction = {
     icons: [
@@ -16,18 +17,7 @@ export const ITEMLEVEL_REACTION: TReaction = {
     ident: 'LEVEL_R',
     roles: ['Tier1', 'Tier2', '1302+', '1340+', '1370+', '1385+', '1400+', '1415+', '1445+'],
     desc: [['!dot assign LEVEL_R', 'Setzt den aktiven Channel für die Itemlevel-Abo-Nachricht']],
-    text:
-        'Reagiere auf alle Itemlevel Bereiche für welche Du aktivitäten abschließen möchtest.' +
-        '\n:one:\tTier 1' +
-        '\n:two:\tTier 2' +
-        '\n:three:\t1302+' +
-        '\n:four:\t1340+' +
-        '\n:five:\t1370+' +
-        '\n:six:\t1385+' +
-        '\n:seven:\t1400+' +
-        '\n:eight:\t1415+' +
-        '\n:nine:\t1445+',
-
+    text: getEmbedItemLevelReaction,
     addCallback: async function (
         reaction: MessageReaction | PartialMessageReaction,
         reactionHex: string,

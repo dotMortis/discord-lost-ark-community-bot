@@ -4,6 +4,7 @@ import {
     Guild,
     GuildMember,
     Message,
+    MessageEmbed,
     MessageReaction,
     PartialMessageReaction,
     PartialUser,
@@ -391,10 +392,17 @@ export class Discord {
         if (reactionData.channelId) {
             const ch = <TextChannel>this._bot.channels.cache.get(reactionData.channelId);
             const createMsg = async () => {
+                const text =
+                    reactionData.reaction.text instanceof Function
+                        ? reactionData.reaction.text(this)
+                        : reactionData.reaction.text;
                 const newMsg = await ch.send(
-                    typeof reactionData.reaction.text === 'string'
-                        ? reactionData.reaction.text
-                        : reactionData.reaction.text(this)
+                    typeof text === 'string'
+                        ? text
+                        : {
+                              content: null,
+                              embeds: [text]
+                          }
                 );
                 await SetConfig(messageIdent, newMsg.id);
                 reactionData.messageId = newMsg.id;
@@ -404,12 +412,20 @@ export class Discord {
                 await ch.messages.fetch();
                 const msg = ch.messages.cache.get(reactionData.messageId);
                 if (!msg) await createMsg();
-                else
+                else {
+                    const text =
+                        reactionData.reaction.text instanceof Function
+                            ? reactionData.reaction.text(this)
+                            : reactionData.reaction.text;
                     await msg.edit(
-                        typeof reactionData.reaction.text === 'string'
-                            ? reactionData.reaction.text
-                            : reactionData.reaction.text(this)
+                        typeof text === 'string'
+                            ? text
+                            : {
+                                  content: null,
+                                  embeds: [text]
+                              }
                     );
+                }
             } else await createMsg();
         }
     }
@@ -723,7 +739,7 @@ export type TReaction = {
     ident: string;
     desc: [string, string][];
     icons: string[];
-    text: string | ((discord: Discord) => string);
+    text: MessageEmbed | string | ((discord: Discord) => string | MessageEmbed);
     roles: string[];
     addCallback: (
         reaction: MessageReaction | PartialMessageReaction,
