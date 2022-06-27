@@ -379,15 +379,20 @@ export class MemberEventFactory extends EventEmitter {
         description: string,
         actionUserId: string
     ): Promise<number> {
-        const event = await prismaClient.event.update({
+        const event = await prismaClient.event.findFirst({
             where: {
                 id: eventId
-            },
-            data: {
-                description
             }
         });
         if (event) {
+            await prismaClient.event.update({
+                where: {
+                    id: eventId
+                },
+                data: {
+                    description
+                }
+            });
             const message = await this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(

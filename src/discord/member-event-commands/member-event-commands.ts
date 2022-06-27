@@ -321,7 +321,7 @@ export const EVENTS: TMemberEventCommand = {
             let message = '';
             for (const event of events) {
                 const eventMsg = await discord.memberEventFactory.getEventMessage(event);
-                message += `\`\`\`E-ID: ${event.id} - ${event.name}\`\`\`\n${
+                message += `E-ID: ${event.id} - ${event.name}\n${
                     eventMsg ? eventMsg.url : 'NO_MESSAGE_URL'
                 }\n\n`;
             }
