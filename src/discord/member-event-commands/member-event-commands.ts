@@ -350,11 +350,11 @@ export const LOGS_EVENT: TMemberEventCommand = {
             });
             let message = '';
             for (const eventLog of eventLogs) {
-                message += `\`\`\`[${
+                message += `[${
                     eventLog.createdAt.toLocaleDateString() +
                     ' - ' +
                     eventLog.createdAt.toLocaleTimeString()
-                }]\n${eventLog.message}\`\`\` `;
+                }]\n${eventLog.message}\n\n`;
             }
             return message || 'NO_LOGS';
         } else {
