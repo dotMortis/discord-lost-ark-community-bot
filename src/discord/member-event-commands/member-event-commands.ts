@@ -350,6 +350,15 @@ export const LOGS_EVENT: TMemberEventCommand = {
             });
             let message = '';
             for (const eventLog of eventLogs) {
+                const regResults = eventLog.message.match(/\<\@[0-9]+\>/g);
+                for (const regResult of regResults || []) {
+                    const userId = regResult.substring(2, regResult.length - 1);
+                    const user = discord.guild.members.cache.get(userId);
+                    eventLog.message.replace(
+                        regResult,
+                        '[' + (user?.nickname || user?.displayName || 'UNKOWN_USER') + ']'
+                    );
+                }
                 message += `[${
                     eventLog.createdAt.toLocaleDateString() +
                     ' - ' +
