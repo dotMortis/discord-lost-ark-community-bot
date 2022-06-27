@@ -19,9 +19,11 @@ import {
     ADD_MEMBER_EVENT,
     DESCRIPE_EVENT,
     DESCRIPE_EVENT_PARTY,
+    EVENTS,
     IS_DONE_EVENT,
     IS_DONE_EVENT_PARTY,
     KICK_MEMBER_EVENT_PARTY,
+    LOGS_EVENT,
     MOVE_MEMBER_EVENT_PARTY,
     REMOVE_MEMBER_EVENT,
     SWITCH_MEMBERS_EVENT_PARTY
@@ -57,7 +59,9 @@ export class Server {
                 KICK_MEMBER_EVENT_PARTY,
                 MOVE_MEMBER_EVENT_PARTY,
                 IS_DONE_EVENT_PARTY,
-                IS_DONE_EVENT
+                IS_DONE_EVENT,
+                EVENTS,
+                LOGS_EVENT
             ]
         );
     }
