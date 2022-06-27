@@ -235,6 +235,11 @@ export class MemberEventFactory extends EventEmitter {
         return `<:${laClass.icon}:${laClass.iconId}>`;
     }
 
+    public getEventMessage(event: Event): Message<boolean> | undefined {
+        const currChannel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
+        return currChannel.messages.cache.get(event.messageId || '');
+    }
+
     private async _createEvent(
         creatorId: string,
         dds: number,
@@ -309,7 +314,7 @@ export class MemberEventFactory extends EventEmitter {
                     break;
                 }
             }
-            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            const message = this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -336,7 +341,7 @@ export class MemberEventFactory extends EventEmitter {
                     isDone: !event.isDone
                 }
             });
-            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            const message = this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -356,7 +361,7 @@ export class MemberEventFactory extends EventEmitter {
         });
         await this._removeEventRole(event.id);
         if (event) {
-            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            const message = this.getEventMessage(event);
             const thread = await message?.thread?.fetch();
             if (thread) {
                 await this._createLog(eventId, thread, `<@${actionUserId}> hat das Event gelöscht`);
@@ -381,7 +386,7 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (event) {
-            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            const message = this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -416,7 +421,7 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (event && party) {
-            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            const message = this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -491,7 +496,7 @@ export class MemberEventFactory extends EventEmitter {
             );
         }
         await this._addEventRoleToUser(event.id, userId);
-        const message = this._getEventMessage(event.channelId, event.messageId || '');
+        const message = this.getEventMessage(event);
         if (message?.thread) {
             await this._createLog(
                 eventId,
@@ -534,7 +539,7 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (event) {
-            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            const message = this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -579,7 +584,7 @@ export class MemberEventFactory extends EventEmitter {
                 }
             });
             if (event) {
-                const message = this._getEventMessage(event.channelId, event.messageId || '');
+                const message = this.getEventMessage(event);
                 if (message?.thread) {
                     await this._createLog(
                         eventId,
@@ -670,7 +675,7 @@ export class MemberEventFactory extends EventEmitter {
                     }
                 });
                 if (event) {
-                    const message = this._getEventMessage(event.channelId, event.messageId || '');
+                    const message = this.getEventMessage(event);
                     if (message?.thread) {
                         await this._createLog(
                             eventId,
@@ -740,7 +745,7 @@ export class MemberEventFactory extends EventEmitter {
                     }
                 });
                 if (event) {
-                    const message = this._getEventMessage(event.channelId, event.messageId || '');
+                    const message = this.getEventMessage(event);
                     if (message?.thread) {
                         await this._createLog(
                             eventId,
@@ -905,7 +910,7 @@ export class MemberEventFactory extends EventEmitter {
 
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
-            const message = this._getEventMessage(channel, event.messageId);
+            const message = this.getEventMessage(event);
             if (message) {
                 await message.edit({ content: null, embeds: [embed] });
                 if (fetchEvent) {
@@ -965,17 +970,6 @@ export class MemberEventFactory extends EventEmitter {
         for (const eventLog of eventLogs) {
             await thread.send(eventLog.message);
         }
-    }
-
-    private _getEventMessage(
-        channel: string | TextChannel,
-        messageId: string
-    ): Message<boolean> | undefined {
-        const currChannel =
-            typeof channel === 'string'
-                ? <TextChannel>this._discord.guild.channels.cache.get(channel)
-                : channel;
-        return currChannel.messages.cache.get(messageId);
     }
 
     private async _getClassFromIcon(classIcon: string): Promise<Class> {

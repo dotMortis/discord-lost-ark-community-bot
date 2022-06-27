@@ -1,5 +1,6 @@
 import { logger } from '@bits_devel/logger';
 import { Message } from 'discord.js';
+import { prismaClient } from '../../db/prisma-client';
 import {
     EMemberEvent,
     TCreateEvent,
@@ -66,7 +67,8 @@ export const REMOVE_MEMBER_EVENT: TMemberEventCommand = {
             return discord.memberEventFactory
                 .action<TRemoveEvent>({
                     eventId: Number(eventId),
-                    type: EMemberEvent.REMOVE_EVENT
+                    type: EMemberEvent.REMOVE_EVENT,
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -93,7 +95,8 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
                 .action<TUpdateEventDesc>({
                     type: EMemberEvent.UPDATE_EVENT_DESC,
                     description: desc,
-                    eventId: Number(eventId)
+                    eventId: Number(eventId),
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -122,7 +125,8 @@ export const DESCRIPE_EVENT_PARTY: TMemberEventCommand = {
                     type: EMemberEvent.UPDATE_PARTY_DESC,
                     description: desc,
                     eventId: Number(eventId),
-                    partyNumber: Number(partyNumber)
+                    partyNumber: Number(partyNumber),
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -170,7 +174,8 @@ export const SWITCH_MEMBERS_EVENT_PARTY: TMemberEventCommand = {
                     memberTwo: {
                         memberNumber: Number(memberTwo),
                         partyNumber: Number(partyTwo)
-                    }
+                    },
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -207,7 +212,8 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
                         memberNumber: Number(memberOne),
                         partyNumber: Number(partyOne)
                     },
-                    newPartyNumber: Number(newPartyNumber)
+                    newPartyNumber: Number(newPartyNumber),
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -236,7 +242,8 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
                     type: EMemberEvent.REMOVE_MEMBER_BY_PARTY_NUMBER,
                     eventId: Number(eventId),
                     memberNumber: Number(memberOne),
-                    partyNumber: Number(partyOne)
+                    partyNumber: Number(partyOne),
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -262,7 +269,8 @@ export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
                 .action<TPartyIsDone>({
                     type: EMemberEvent.PARTY_IS_DONE,
                     eventId: Number(eventId),
-                    partyNumber: Number(partyNumber)
+                    partyNumber: Number(partyNumber),
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -287,7 +295,8 @@ export const IS_DONE_EVENT: TMemberEventCommand = {
             await discord.memberEventFactory
                 .action<TEventIsDone>({
                     type: EMemberEvent.EVENT_IS_DONE,
-                    eventId: Number(eventId)
+                    eventId: Number(eventId),
+                    actionUserId: msg.author.id
                 })
                 .catch(e => {
                     logger.error(e);
@@ -295,6 +304,61 @@ export const IS_DONE_EVENT: TMemberEventCommand = {
                 });
         } else {
             return 'Error:\n```' + IS_DONE_EVENT.desc[0] + '```';
+        }
+    }
+};
+
+export const EVENTS: TMemberEventCommand = {
+    command: 'list',
+    desc: [['!event list', 'Sendet eine Liste aller Events']],
+    callback: async (
+        msg: Message<boolean>,
+        args: string[],
+        discord: Discord
+    ): Promise<void | string> => {
+        try {
+            const events = await prismaClient.event.findMany();
+            let message = '';
+            for (const event of events) {
+                const eventMsg = discord.memberEventFactory.getEventMessage(event);
+                message += `\`\`\`E-ID: ${event.id} - ${event.name} - ${
+                    eventMsg ? eventMsg.url : 'NO_MESSAGE_URL'
+                }\`\`\`\n`;
+            }
+            return message || 'WHERE EVENTS?!';
+        } catch (e) {
+            logger.error(e);
+            return 'Error:\n```' + EVENTS.desc[0] + '```';
+        }
+    }
+};
+
+export const LOGS_EVENT: TMemberEventCommand = {
+    command: 'logs',
+    desc: [['!event logs <eventId>', 'Sendet eine Liste aller Logs eines Events']],
+    callback: async (
+        msg: Message<boolean>,
+        args: string[],
+        discord: Discord
+    ): Promise<void | string> => {
+        const [trigger, command, eventId] = args;
+        if (Number(eventId)) {
+            const eventLogs = await prismaClient.eventLog.findMany({
+                where: {
+                    eventId: Number(eventId)
+                }
+            });
+            let message = '';
+            for (const eventLog of eventLogs) {
+                message += `\`\`\`[${
+                    eventLog.createdAt.toLocaleDateString() +
+                    ' - ' +
+                    eventLog.createdAt.toLocaleTimeString()
+                }]\t${eventLog}\`\`\`\n`;
+            }
+            return message || 'NO_LOGS';
+        } else {
+            return 'Error:\n```' + LOGS_EVENT.desc[0] + '```';
         }
     }
 };
