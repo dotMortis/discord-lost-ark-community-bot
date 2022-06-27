@@ -1,7 +1,14 @@
 import { logger } from '@bits_devel/logger';
 import { Class, Event, EventRole, Party, PartyMember, Role } from '@prisma/client';
 import { path as rootPath } from 'app-root-path';
-import { Emoji, Message, MessageEmbed, PartialMessage, TextChannel } from 'discord.js';
+import {
+    Emoji,
+    Message,
+    MessageEmbed,
+    PartialMessage,
+    TextChannel,
+    ThreadChannel
+} from 'discord.js';
 import EventEmitter from 'events';
 import path from 'path';
 import { v4 } from 'uuid';
@@ -152,7 +159,8 @@ export class MemberEventFactory extends EventEmitter {
                                 classIcon: reaction.emoji.name,
                                 eventId: event.id,
                                 type: EMemberEvent.ADD_MEMBER,
-                                userId: user.id
+                                userId: user.id,
+                                actionUserId: user.id
                             });
                         }
                     } else if (Buffer.from(reaction.emoji.name).toString('hex') === 'f09f9aab') {
@@ -199,7 +207,8 @@ export class MemberEventFactory extends EventEmitter {
                             charNumber,
                             eventId: event.id,
                             type: EMemberEvent.REMOVE_MEMBER_BY_USER_ID,
-                            userId: user.id
+                            userId: user.id,
+                            actionUserId: user.id
                         });
                     }
                 }
@@ -268,38 +277,57 @@ export class MemberEventFactory extends EventEmitter {
         return event.id;
     }
 
-    private async _setPartyIsDone(eventId: number, partyNumber: number): Promise<number> {
-        const partys = await prismaClient.party.findMany({
+    private async _setPartyIsDone(
+        eventId: number,
+        partyNumber: number,
+        actionUserId: string
+    ): Promise<number> {
+        const event = await prismaClient.event.findFirst({
             where: {
-                eventId
+                id: eventId
             },
-            orderBy: {
-                createdAt: 'asc'
+            include: {
+                partys: {
+                    orderBy: {
+                        createdAt: 'asc'
+                    }
+                }
             }
         });
-        for (let z = 0; z < partys.length; z++) {
-            if (z + 1 === partyNumber) {
-                await prismaClient.party.update({
-                    where: {
-                        id: partys[z].id
-                    },
-                    data: {
-                        isDone: !partys[z].isDone
-                    }
-                });
-                break;
+        if (event) {
+            const { partys } = event;
+            for (let z = 0; z < partys.length; z++) {
+                if (z + 1 === partyNumber) {
+                    await prismaClient.party.update({
+                        where: {
+                            id: partys[z].id
+                        },
+                        data: {
+                            isDone: !partys[z].isDone
+                        }
+                    });
+                    break;
+                }
+            }
+            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            if (message?.thread) {
+                await this._createLog(
+                    eventId,
+                    message.thread,
+                    `<@${actionUserId}> hat "Group ${partyNumber}" abgeschlossen`
+                );
             }
         }
         return eventId;
     }
 
-    private async _setEventIsDone(eventId: number): Promise<number> {
+    private async _setEventIsDone(eventId: number, actionUserId: string): Promise<number> {
         const event = await prismaClient.event.findFirst({
             where: {
                 id: eventId
             }
         });
-        if (event)
+        if (event) {
             await prismaClient.event.update({
                 where: {
                     id: event.id
@@ -308,28 +336,43 @@ export class MemberEventFactory extends EventEmitter {
                     isDone: !event.isDone
                 }
             });
+            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            if (message?.thread) {
+                await this._createLog(
+                    eventId,
+                    message.thread,
+                    `<@${actionUserId}> hat das Event abgeschlossen`
+                );
+            }
+        }
         return eventId;
     }
 
-    private async _removeEvent(eventId: number): Promise<number> {
+    private async _removeEvent(eventId: number, actionUserId: string): Promise<number> {
         const event = await prismaClient.event.delete({
             where: {
                 id: eventId
             }
         });
         await this._removeEventRole(event.id);
-        const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
-        if (event?.messageId) {
-            const message = channel.messages.cache.get(event.messageId);
+        if (event) {
+            const message = this._getEventMessage(event.channelId, event.messageId || '');
             const thread = await message?.thread?.fetch();
-            await thread?.delete();
-            await message?.delete();
+            if (thread) {
+                await this._createLog(eventId, thread, `<@${actionUserId}> hat das Event gelöscht`);
+                await thread?.delete();
+                await message?.delete();
+            }
         }
         return eventId;
     }
 
-    private async _updateEventDesc(eventId: number, description: string): Promise<number> {
-        await prismaClient.event.update({
+    private async _updateEventDesc(
+        eventId: number,
+        description: string,
+        actionUserId: string
+    ): Promise<number> {
+        const event = await prismaClient.event.update({
             where: {
                 id: eventId
             },
@@ -337,13 +380,24 @@ export class MemberEventFactory extends EventEmitter {
                 description
             }
         });
+        if (event) {
+            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            if (message?.thread) {
+                await this._createLog(
+                    eventId,
+                    message.thread,
+                    `<@${actionUserId}> hat die Event beschreibung geändert`
+                );
+            }
+        }
         return eventId;
     }
 
     private async _updateParytDesc(
         eventId: number,
         partyNumber: number,
-        description: string
+        description: string,
+        actionUserId: string
     ): Promise<number> {
         const party = await this._getPartyByNumber(eventId, partyNumber, false);
         if (party) {
@@ -356,10 +410,31 @@ export class MemberEventFactory extends EventEmitter {
                 }
             });
         }
+        const event = await prismaClient.event.findFirst({
+            where: {
+                id: eventId
+            }
+        });
+        if (event && party) {
+            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            if (message?.thread) {
+                await this._createLog(
+                    eventId,
+                    message.thread,
+                    `<@${actionUserId}> hat die "Group ${partyNumber}" beschreibung geändert`
+                );
+            }
+        }
+
         return eventId;
     }
 
-    private async _addMember(eventId: number, classIcon: string, userId: string): Promise<number> {
+    private async _addMember(
+        eventId: number,
+        classIcon: string,
+        userId: string,
+        actionUserId: string
+    ): Promise<number> {
         const event = await this._getEventFromId(eventId);
         const laClass = await this._getClassFromIcon(classIcon);
         const maxMembers = event.dds + event.free + event.supps;
@@ -416,13 +491,24 @@ export class MemberEventFactory extends EventEmitter {
             );
         }
         await this._addEventRoleToUser(event.id, userId);
+        const message = this._getEventMessage(event.channelId, event.messageId || '');
+        if (message?.thread) {
+            await this._createLog(
+                eventId,
+                message.thread,
+                userId === actionUserId
+                    ? `<@${actionUserId}> hat seinen Character #${newCharNumber} angemeldet`
+                    : `<@${actionUserId}> hat Character #${newCharNumber} für <@${userId}> angemeldet`
+            );
+        }
         return eventId;
     }
 
     private async _removeMemberByUserId(
         eventId: number,
         charNumber: number,
-        userId: string
+        userId: string,
+        actionUserId: string
     ): Promise<number> {
         await prismaClient.partyMember.deleteMany({
             where: {
@@ -442,13 +528,31 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (!memberChars.length) await this._removeEventRoleFromUser(eventId, userId);
+        const event = await prismaClient.event.findFirst({
+            where: {
+                id: eventId
+            }
+        });
+        if (event) {
+            const message = this._getEventMessage(event.channelId, event.messageId || '');
+            if (message?.thread) {
+                await this._createLog(
+                    eventId,
+                    message.thread,
+                    userId === actionUserId
+                        ? `<@${actionUserId}> hat seinen Character #${charNumber} abgemeldet`
+                        : `<@${actionUserId}> hat Character #${charNumber} von <@${userId}> abgemeldet`
+                );
+            }
+        }
         return eventId;
     }
 
     private async _removeMemberByPartyNumber(
         eventId: number,
         memberNumber: number,
-        partyNumber: number
+        partyNumber: number,
+        actionUserId: string
     ): Promise<number> {
         const party = await this._getPartyByNumber(eventId, partyNumber, true);
         const partyMember = party?.partyMembers.find(member => member.memberNo === memberNumber);
@@ -466,8 +570,26 @@ export class MemberEventFactory extends EventEmitter {
                     userId: partyMember.userId
                 }
             });
-            if (!memberChars.length)
+            if (!memberChars.length) {
                 await this._removeEventRoleFromUser(eventId, partyMember.userId);
+            }
+            const event = await prismaClient.event.findFirst({
+                where: {
+                    id: eventId
+                }
+            });
+            if (event) {
+                const message = this._getEventMessage(event.channelId, event.messageId || '');
+                if (message?.thread) {
+                    await this._createLog(
+                        eventId,
+                        message.thread,
+                        partyMember.userId === actionUserId
+                            ? `<@${actionUserId}> hat seinen Character #${partyMember.charNo} abgemeldet`
+                            : `<@${actionUserId}> hat Character #${partyMember.charNo} von <@${partyMember.userId}> abgemeldet`
+                    );
+                }
+            }
         }
         return eventId;
     }
@@ -475,7 +597,8 @@ export class MemberEventFactory extends EventEmitter {
     private async _switchMembers(
         eventId: number,
         memberOne: { memberNumber: number; partyNumber: number },
-        memberTwo: { memberNumber: number; partyNumber: number }
+        memberTwo: { memberNumber: number; partyNumber: number },
+        actionUserId: string
     ): Promise<number> {
         const partys = await prismaClient.party.findMany({
             where: {
@@ -541,7 +664,21 @@ export class MemberEventFactory extends EventEmitter {
                         memberNo: partyMemberTwo.memberNo
                     }
                 });
-
+                const event = await prismaClient.event.findFirst({
+                    where: {
+                        id: eventId
+                    }
+                });
+                if (event) {
+                    const message = this._getEventMessage(event.channelId, event.messageId || '');
+                    if (message?.thread) {
+                        await this._createLog(
+                            eventId,
+                            message.thread,
+                            `<@${actionUserId}> hat [<@${partyMemberOne.userId}> Group #${memberOne.partyNumber} Member #${memberOne.memberNumber}] mit [<@${partyMemberTwo.userId}> Group #${memberTwo.partyNumber} Member #${memberTwo.memberNumber}] getauscht`
+                        );
+                    }
+                }
                 break;
             }
         }
@@ -551,7 +688,8 @@ export class MemberEventFactory extends EventEmitter {
     private async _moveMember(
         eventId: number,
         member: { memberNumber: number; partyNumber: number },
-        newPartyNumber: number
+        newPartyNumber: number,
+        actionUserId: string
     ): Promise<number> {
         const partys = await prismaClient.party.findMany({
             where: {
@@ -596,6 +734,21 @@ export class MemberEventFactory extends EventEmitter {
                         memberNo
                     }
                 });
+                const event = await prismaClient.event.findFirst({
+                    where: {
+                        id: eventId
+                    }
+                });
+                if (event) {
+                    const message = this._getEventMessage(event.channelId, event.messageId || '');
+                    if (message?.thread) {
+                        await this._createLog(
+                            eventId,
+                            message.thread,
+                            `<@${actionUserId}> hat [<@${partyMemberToMove.userId}> Group #${member.partyNumber} Member #${member.memberNumber}] nach Group #${newPartyNumber} geschoben`
+                        );
+                    }
+                }
                 break;
             }
         }
@@ -621,7 +774,8 @@ export class MemberEventFactory extends EventEmitter {
                             eventId = await this._addMember(
                                 data.eventId,
                                 data.classIcon,
-                                data.userId
+                                data.userId,
+                                data.actionUserId
                             );
                             break;
                         }
@@ -638,14 +792,15 @@ export class MemberEventFactory extends EventEmitter {
                             break;
                         }
                         case EMemberEvent.REMOVE_EVENT: {
-                            eventId = await this._removeEvent(data.eventId);
+                            eventId = await this._removeEvent(data.eventId, data.actionUserId);
                             break;
                         }
                         case EMemberEvent.REMOVE_MEMBER_BY_PARTY_NUMBER: {
                             eventId = await this._removeMemberByPartyNumber(
                                 data.eventId,
                                 data.memberNumber,
-                                data.partyNumber
+                                data.partyNumber,
+                                data.actionUserId
                             );
                             break;
                         }
@@ -653,7 +808,8 @@ export class MemberEventFactory extends EventEmitter {
                             eventId = await this._removeMemberByUserId(
                                 data.eventId,
                                 data.charNumber,
-                                data.userId
+                                data.userId,
+                                data.actionUserId
                             );
                             break;
                         }
@@ -661,19 +817,25 @@ export class MemberEventFactory extends EventEmitter {
                             eventId = await this._switchMembers(
                                 data.eventId,
                                 data.memberOne,
-                                data.memberTwo
+                                data.memberTwo,
+                                data.actionUserId
                             );
                             break;
                         }
                         case EMemberEvent.UPDATE_EVENT_DESC: {
-                            eventId = await this._updateEventDesc(data.eventId, data.description);
+                            eventId = await this._updateEventDesc(
+                                data.eventId,
+                                data.description,
+                                data.actionUserId
+                            );
                             break;
                         }
                         case EMemberEvent.UPDATE_PARTY_DESC: {
                             eventId = await this._updateParytDesc(
                                 data.eventId,
                                 data.partyNumber,
-                                data.description
+                                data.description,
+                                data.actionUserId
                             );
                             break;
                         }
@@ -681,16 +843,21 @@ export class MemberEventFactory extends EventEmitter {
                             eventId = await this._moveMember(
                                 data.eventId,
                                 data.member,
-                                data.newPartyNumber
+                                data.newPartyNumber,
+                                data.actionUserId
                             );
                             break;
                         }
                         case EMemberEvent.PARTY_IS_DONE: {
-                            eventId = await this._setPartyIsDone(data.eventId, data.partyNumber);
+                            eventId = await this._setPartyIsDone(
+                                data.eventId,
+                                data.partyNumber,
+                                data.actionUserId
+                            );
                             break;
                         }
                         case EMemberEvent.EVENT_IS_DONE: {
-                            eventId = await this._setEventIsDone(data.eventId);
+                            eventId = await this._setEventIsDone(data.eventId, data.actionUserId);
                             break;
                         }
                         default:
@@ -738,7 +905,7 @@ export class MemberEventFactory extends EventEmitter {
 
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
-            const message = channel.messages.cache.get(event.messageId);
+            const message = this._getEventMessage(channel, event.messageId);
             if (message) {
                 await message.edit({ content: null, embeds: [embed] });
                 if (fetchEvent) {
@@ -790,6 +957,25 @@ export class MemberEventFactory extends EventEmitter {
         if (threadMsg) thread.send(threadMsg);
         await this._setReactions(newMessage, 'classes');
         await this._setReactions(newThreadMessage, 'classes');
+        const eventLogs = await prismaClient.eventLog.findMany({
+            where: {
+                eventId: event.id
+            }
+        });
+        for (const eventLog of eventLogs) {
+            await thread.send(eventLog.message);
+        }
+    }
+
+    private _getEventMessage(
+        channel: string | TextChannel,
+        messageId: string
+    ): Message<boolean> | undefined {
+        const currChannel =
+            typeof channel === 'string'
+                ? <TextChannel>this._discord.guild.channels.cache.get(channel)
+                : channel;
+        return currChannel.messages.cache.get(messageId);
     }
 
     private async _getClassFromIcon(classIcon: string): Promise<Class> {
@@ -1029,6 +1215,20 @@ export class MemberEventFactory extends EventEmitter {
         const role = this._discord.guild.roles.cache.find(role => role.name === `event_${eventId}`);
         if (role) await this._discord.guild.members.cache.get(userId)?.roles.remove(role);
     }
+
+    private async _createLog(
+        eventId: number,
+        thread: ThreadChannel,
+        message: string
+    ): Promise<void> {
+        await prismaClient.eventLog.create({
+            data: {
+                message,
+                eventId
+            }
+        });
+        await thread.send(message);
+    }
 }
 
 export enum EMemberEvent {
@@ -1058,54 +1258,64 @@ export type TCreateEvent = {
 export type TRemoveEvent = {
     type: EMemberEvent.REMOVE_EVENT;
     eventId: number;
+    actionUserId: string;
 };
 export type TUpdateEventDesc = {
     type: EMemberEvent.UPDATE_EVENT_DESC;
     eventId: number;
     description: string;
+    actionUserId: string;
 };
 export type TUpdateParytDesc = {
     type: EMemberEvent.UPDATE_PARTY_DESC;
     eventId: number;
     partyNumber: number;
     description: string;
+    actionUserId: string;
 };
 export type TAddMember = {
     type: EMemberEvent.ADD_MEMBER;
     eventId: number;
     classIcon: string;
     userId: string;
+    actionUserId: string;
 };
 export type TRemoveMemberByUserId = {
     type: EMemberEvent.REMOVE_MEMBER_BY_USER_ID;
     eventId: number;
     charNumber: number;
     userId: string;
+    actionUserId: string;
 };
 export type TRemoveMemberByPartyNumber = {
     type: EMemberEvent.REMOVE_MEMBER_BY_PARTY_NUMBER;
     eventId: number;
     memberNumber: number;
     partyNumber: number;
+    actionUserId: string;
 };
 export type TSwitchMembers = {
     type: EMemberEvent.SWITCH_MEMBERS;
     eventId: number;
     memberOne: { memberNumber: number; partyNumber: number };
     memberTwo: { memberNumber: number; partyNumber: number };
+    actionUserId: string;
 };
 export type TMoveMember = {
     type: EMemberEvent.MOVE_MEMBER;
     eventId: number;
     member: { memberNumber: number; partyNumber: number };
     newPartyNumber: number;
+    actionUserId: string;
 };
 export type TPartyIsDone = {
     type: EMemberEvent.PARTY_IS_DONE;
     eventId: number;
     partyNumber: number;
+    actionUserId: string;
 };
 export type TEventIsDone = {
     type: EMemberEvent.EVENT_IS_DONE;
     eventId: number;
+    actionUserId: string;
 };
