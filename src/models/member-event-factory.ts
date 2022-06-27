@@ -235,9 +235,11 @@ export class MemberEventFactory extends EventEmitter {
         return `<:${laClass.icon}:${laClass.iconId}>`;
     }
 
-    public getEventMessage(event: Event): Message<boolean> | undefined {
+    public async getEventMessage(event: Event): Promise<Message<boolean> | undefined> {
         const currChannel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
-        return currChannel.messages.cache.get(event.messageId || '');
+        const message = currChannel?.messages.cache.get(event.messageId || '');
+        await message?.thread?.fetch();
+        return message;
     }
 
     private async _createEvent(
@@ -314,7 +316,7 @@ export class MemberEventFactory extends EventEmitter {
                     break;
                 }
             }
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -341,7 +343,7 @@ export class MemberEventFactory extends EventEmitter {
                     isDone: !event.isDone
                 }
             });
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -361,7 +363,7 @@ export class MemberEventFactory extends EventEmitter {
         });
         await this._removeEventRole(event.id);
         if (event) {
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             const thread = await message?.thread?.fetch();
             if (thread) {
                 await this._createLog(eventId, thread, `<@${actionUserId}> hat das Event gelöscht`);
@@ -386,7 +388,7 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (event) {
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -421,7 +423,7 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (event && party) {
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -496,7 +498,7 @@ export class MemberEventFactory extends EventEmitter {
             );
         }
         await this._addEventRoleToUser(event.id, userId);
-        const message = this.getEventMessage(event);
+        const message = await this.getEventMessage(event);
         if (message?.thread) {
             await this._createLog(
                 eventId,
@@ -539,7 +541,7 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         if (event) {
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             if (message?.thread) {
                 await this._createLog(
                     eventId,
@@ -584,7 +586,7 @@ export class MemberEventFactory extends EventEmitter {
                 }
             });
             if (event) {
-                const message = this.getEventMessage(event);
+                const message = await this.getEventMessage(event);
                 if (message?.thread) {
                     await this._createLog(
                         eventId,
@@ -675,7 +677,7 @@ export class MemberEventFactory extends EventEmitter {
                     }
                 });
                 if (event) {
-                    const message = this.getEventMessage(event);
+                    const message = await this.getEventMessage(event);
                     if (message?.thread) {
                         await this._createLog(
                             eventId,
@@ -745,7 +747,7 @@ export class MemberEventFactory extends EventEmitter {
                     }
                 });
                 if (event) {
-                    const message = this.getEventMessage(event);
+                    const message = await this.getEventMessage(event);
                     if (message?.thread) {
                         await this._createLog(
                             eventId,
@@ -910,7 +912,7 @@ export class MemberEventFactory extends EventEmitter {
 
         const channel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         if (event.messageId) {
-            const message = this.getEventMessage(event);
+            const message = await this.getEventMessage(event);
             if (message) {
                 await message.edit({ content: null, embeds: [embed] });
                 if (fetchEvent) {
