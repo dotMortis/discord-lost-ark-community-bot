@@ -398,7 +398,7 @@ export class MemberEventFactory extends EventEmitter {
                 await this._createLog(
                     eventId,
                     message.thread,
-                    `<@${actionUserId}> hat die Event beschreibung geändert`
+                    `<@${actionUserId}> hat die Event Beschreibung geändert`
                 );
             }
         }
@@ -433,7 +433,7 @@ export class MemberEventFactory extends EventEmitter {
                 await this._createLog(
                     eventId,
                     message.thread,
-                    `<@${actionUserId}> hat die "Group ${partyNumber}" beschreibung geändert`
+                    `<@${actionUserId}> hat die "Group ${partyNumber}" Beschreibung geändert`
                 );
             }
         }
