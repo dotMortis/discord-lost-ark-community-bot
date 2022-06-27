@@ -44,10 +44,22 @@ model Event {
     free        Int
     name        String
     roles       EventRole[]
+    isDeleted   Boolean     @default(false) @map("is_deleted")
     creatorId   String      @map("creator_id")
     partys      Party[]
+    eventLogs   EventLog[]
 
     @@map("event")
+}
+
+model EventLog {
+    id        String   @id @default(uuid()) @db.Char(36)
+    message   String   @db.VarChar(255)
+    createdAt DateTime @default(now()) @map("crated_at")
+    event     Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+    eventId   Int      @map("event_id") @db.UnsignedInt
+
+    @@index([createdAt])
 }
 
 model EventRole {
