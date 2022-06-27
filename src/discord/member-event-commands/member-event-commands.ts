@@ -354,7 +354,7 @@ export const LOGS_EVENT: TMemberEventCommand = {
                     eventLog.createdAt.toLocaleDateString() +
                     ' - ' +
                     eventLog.createdAt.toLocaleTimeString()
-                }]\t${eventLog.message}\`\`\` `;
+                }]\n${eventLog.message}\`\`\` `;
             }
             return message || 'NO_LOGS';
         } else {
