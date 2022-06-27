@@ -14,7 +14,13 @@ PRISMA_CLIENT.$use(async (params, next) => {
         } else if (params.action === 'findFirst' && params.args.where.deleteAt == null) {
             params.args.where.isDeleted = false;
         } else if (params.action === 'findMany') {
-            if (params.args.where == null) {
+            if (params.args == null) {
+                params.args = {
+                    where: {
+                        isDeleted: false
+                    }
+                };
+            } else if (params.args.where == null) {
                 params.args.where = {
                     isDeleted: false
                 };
