@@ -26,6 +26,7 @@ import {
     LOGS_EVENT,
     MOVE_MEMBER_EVENT_PARTY,
     REMOVE_MEMBER_EVENT,
+    RENAME_EVENT,
     SWITCH_MEMBERS_EVENT_PARTY
 } from './discord/member-event-commands/member-event-commands';
 import { ALERT_REACTION } from './discord/reactions/alert.reaction';
@@ -61,7 +62,8 @@ export class Server {
                 IS_DONE_EVENT_PARTY,
                 IS_DONE_EVENT,
                 LIST_EVENTS,
-                LOGS_EVENT
+                LOGS_EVENT,
+                RENAME_EVENT
             ]
         );
     }
