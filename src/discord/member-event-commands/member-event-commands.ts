@@ -110,7 +110,7 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
 };
 
 export const RENAME_EVENT: TMemberEventCommand = {
-    command: 'desc',
+    command: 'name',
     desc: [['!event name <eventId> <newName>', 'Benennt ein Event um']],
     callback: async (
         msg: Message<boolean>,
