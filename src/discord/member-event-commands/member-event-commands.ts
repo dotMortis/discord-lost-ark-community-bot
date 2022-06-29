@@ -11,6 +11,7 @@ import {
     TRemoveMemberByPartyNumber,
     TSwitchMembers,
     TUpdateEventDesc,
+    TUpdateEventName,
     TUpdateParytDesc
 } from '../../models/member-event-factory';
 import { Discord, TMemberEventCommand } from '../discord.model';
@@ -104,6 +105,34 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
                 });
         } else {
             return 'Error:\n```' + DESCRIPE_EVENT.desc[0] + '```';
+        }
+    }
+};
+
+export const RENAME_EVENT: TMemberEventCommand = {
+    command: 'desc',
+    desc: [['!event name <eventId> <newName>', 'Benennt ein Event um']],
+    callback: async (
+        msg: Message<boolean>,
+        args: string[],
+        discord: Discord
+    ): Promise<void | string> => {
+        const [trigger, command, eventId] = args;
+        const newEventName = args.slice(3).join(' ');
+        if (Number(eventId)) {
+            await discord.memberEventFactory
+                .action<TUpdateEventName>({
+                    type: EMemberEvent.UPDATE_EVENT_NAME,
+                    newEventName,
+                    eventId: Number(eventId),
+                    actionUserId: msg.author.id
+                })
+                .catch(e => {
+                    logger.error(e);
+                    return 'Error:\n```' + RENAME_EVENT.desc[0] + '```';
+                });
+        } else {
+            return 'Error:\n```' + RENAME_EVENT.desc[0] + '```';
         }
     }
 };
@@ -308,7 +337,7 @@ export const IS_DONE_EVENT: TMemberEventCommand = {
     }
 };
 
-export const EVENTS: TMemberEventCommand = {
+export const LIST_EVENTS: TMemberEventCommand = {
     command: 'list',
     desc: [['!event list', 'Sendet eine Liste aller Events']],
     callback: async (
@@ -328,7 +357,7 @@ export const EVENTS: TMemberEventCommand = {
             return message || 'WHERE EVENTS?!';
         } catch (e) {
             logger.error(e);
-            return 'Error:\n```' + EVENTS.desc[0] + '```';
+            return 'Error:\n```' + LIST_EVENTS.desc[0] + '```';
         }
     }
 };

@@ -59,7 +59,8 @@ export class MemberEventFactory extends EventEmitter {
             | TSwitchMembers
             | TMoveMember
             | TPartyIsDone
-            | TEventIsDone;
+            | TEventIsDone
+            | TUpdateEventName;
     }>;
     private readonly _eventIdReg: RegExp;
     private readonly _discord: Discord;
@@ -81,7 +82,8 @@ export class MemberEventFactory extends EventEmitter {
                 | TSwitchMembers
                 | TMoveMember
                 | TPartyIsDone
-                | TEventIsDone;
+                | TEventIsDone
+                | TUpdateEventName;
         }>();
         this._discord = discord;
         this.on('ACTION', async data => {
@@ -767,6 +769,39 @@ export class MemberEventFactory extends EventEmitter {
         return eventId;
     }
 
+    private async _renameEvent(
+        eventId: number,
+        newEventName: string,
+        actionUserId: string
+    ): Promise<number> {
+        const event = await prismaClient.event.findFirst({
+            where: {
+                id: eventId
+            }
+        });
+        if (event) {
+            await prismaClient.event.update({
+                where: {
+                    id: event.id
+                },
+                data: {
+                    name: newEventName
+                }
+            });
+            const eventMsg = await this.getEventMessage(event);
+            const thread = eventMsg?.thread;
+            if (thread) {
+                await thread.setName(newEventName);
+                await this._createLog(
+                    eventId,
+                    thread,
+                    `<@${actionUserId}> hat das Event umbenannt`
+                );
+            }
+        }
+        return eventId;
+    }
+
     private async _updateEvents(): Promise<void> {
         if (this._isRunning) {
             this._runAgain = this._isRunning;
@@ -870,6 +905,14 @@ export class MemberEventFactory extends EventEmitter {
                         }
                         case EMemberEvent.EVENT_IS_DONE: {
                             eventId = await this._setEventIsDone(data.eventId, data.actionUserId);
+                            break;
+                        }
+                        case EMemberEvent.UPDATE_EVENT_NAME: {
+                            eventId = await this._renameEvent(
+                                data.eventId,
+                                data.newEventName,
+                                data.actionUserId
+                            );
                             break;
                         }
                         default:
@@ -1243,7 +1286,8 @@ export enum EMemberEvent {
     MOVE_MEMBER = 'MOVE_MEMBER',
     SWITCH_MEMBERS = 'SWITCH_MEMBERS',
     PARTY_IS_DONE = 'PARTY_IS_DONE',
-    EVENT_IS_DONE = 'EVENT_IS_DONE'
+    EVENT_IS_DONE = 'EVENT_IS_DONE',
+    UPDATE_EVENT_NAME = 'UPDATE_EVENT_NAME'
 }
 
 export type TCreateEvent = {
@@ -1259,6 +1303,12 @@ export type TCreateEvent = {
 export type TRemoveEvent = {
     type: EMemberEvent.REMOVE_EVENT;
     eventId: number;
+    actionUserId: string;
+};
+export type TUpdateEventName = {
+    type: EMemberEvent.UPDATE_EVENT_NAME;
+    eventId: number;
+    newEventName: string;
     actionUserId: string;
 };
 export type TUpdateEventDesc = {
