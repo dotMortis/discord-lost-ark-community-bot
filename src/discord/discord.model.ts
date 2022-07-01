@@ -20,6 +20,7 @@ import { COMMAND_COMMAND } from './deault-commands/command.command';
 import { getEmbedCalendar } from './embeds/calendar.embed';
 
 export class Discord {
+    //#region Properties
     private _guildId: string;
     private readonly _prefix = '!dot';
     private _bot: Client;
@@ -78,6 +79,14 @@ export class Discord {
     }
 
     private _defaultCommands: Map<string, TDefaultCommand>;
+    private _publicCommands: Map<string, TPublicCommand>;
+    get publicCommands() {
+        return {
+            get: (key: string) => this._publicCommands.get(key.toLocaleLowerCase()),
+            set: (key: string, value: TPublicCommand) => this._publicCommands.set(key, value),
+            map: this._publicCommands
+        };
+    }
 
     private _reactions: Array<{
         channelId: string | undefined;
@@ -134,7 +143,9 @@ export class Discord {
     get memberEvents(): Map<string, TMemberEventCommand> {
         return this._memberEvents;
     }
+    //#endregion
 
+    //#region constructor
     constructor() {
         this._memberEventFactory = new MemberEventFactory(this);
         this._calData = {
@@ -169,6 +180,7 @@ export class Discord {
         }>();
         this._memberEvents = new Map<string, TMemberEventCommand>();
         this._defaultCommands = new Map<string, TDefaultCommand>();
+        this._publicCommands = new Map<string, TPublicCommand>();
         this._bot = new Client({
             intents: [
                 'GUILDS',
@@ -179,16 +191,18 @@ export class Discord {
             ]
         });
     }
+    //#endregion
 
-    async init(
-        defaultCommands: Array<TDefaultCommand>,
-        calCommands: Array<TCalCommand>,
-        routines: Array<TRoutine>,
-        reactions: Array<TReaction>,
-        alerts: Array<TAlert>,
-        eventAlerts: Array<TEventAlert>,
-        memberEvents: Array<TMemberEventCommand>
-    ) {
+    async init(middlewares: {
+        defaultCommands: Array<TDefaultCommand>;
+        calCommands: Array<TCalCommand>;
+        routines: Array<TRoutine>;
+        reactions: Array<TReaction>;
+        alerts: Array<TAlert>;
+        eventAlerts: Array<TEventAlert>;
+        memberEvents: Array<TMemberEventCommand>;
+        publicCommands: Array<TPublicCommand>;
+    }) {
         this._bot.on('debug', (msg: string) => {
             logger.debug(msg);
         });
@@ -200,11 +214,20 @@ export class Discord {
                 res();
             });
         });
-
+        const {
+            defaultCommands,
+            calCommands,
+            routines,
+            reactions,
+            alerts,
+            eventAlerts,
+            memberEvents,
+            publicCommands
+        } = middlewares;
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
-        this._initCommands(defaultCommands, calCommands, memberEvents);
+        this._initCommands(defaultCommands, calCommands, memberEvents, publicCommands);
         await this._initChannels();
         await this._initReactions(reactions);
         await this._initAlerts(alerts);
@@ -226,7 +249,8 @@ export class Discord {
     private _initCommands(
         defaultCommands: Array<TDefaultCommand>,
         calCommands: Array<TCalCommand>,
-        memberEventCommands: Array<TMemberEventCommand>
+        memberEventCommands: Array<TMemberEventCommand>,
+        publicCommands: Array<TPublicCommand>
     ): void {
         for (const command of defaultCommands) {
             this._defaultCommands.set(command.command, command);
@@ -236,6 +260,9 @@ export class Discord {
         }
         for (const command of memberEventCommands) {
             this._memberEvents.set(command.command, command);
+        }
+        for (const command of publicCommands) {
+            this.publicCommands.set(command.command, command);
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
             try {
@@ -266,9 +293,9 @@ export class Discord {
                 if (
                     !msg.content.trimStart().startsWith('!') ||
                     msg.author.id === this._bot.user?.id
-                )
+                ) {
                     return;
-                else if (msg.content.trimStart().startsWith('!event')) {
+                } else if (msg.content.trimStart().startsWith('!event')) {
                     msg.content = msg.content.replace(/\ \ +/g, ' ').trim();
                     const args = msg.content.split(' ');
                     const command = this.memberEvents.get(args[1]);
@@ -296,9 +323,12 @@ export class Discord {
                                 'Alle Befehle:\n' + commands.map(com => '!' + com).join('\n');
                             await msg.reply(commandsStr);
                         } else {
-                            const value = await this.getCustomCommand(command);
-                            if (value) {
+                            const value = await this.getPublicOrCustomCommand(command);
+                            if (typeof value === 'string') {
                                 await msg.reply(value);
+                            } else if (value != null && args.length >= value.minLength) {
+                                const result = await value.callback(msg, args, this);
+                                if (result) await msg.channel.send(result);
                             } else {
                                 const commands = await this.getCustomCommandList();
                                 const commandsStr =
@@ -650,22 +680,29 @@ export class Discord {
     }
 
     //#region custom commands
-    public async getCustomCommand(command: string): Promise<string | undefined | null> {
-        const key = `CUSTOM_COM_${command}`;
-        const result = await prismaClient.config.findFirst({
-            where: {
-                key
-            },
-            select: {
-                value: true
-            }
-        });
-        return result?.value;
+    public async getPublicOrCustomCommand(
+        command: string
+    ): Promise<string | undefined | null | TPublicCommand> {
+        const publicCommand = this.publicCommands.get(command);
+        if (publicCommand) {
+            return publicCommand;
+        } else {
+            const key = `CUSTOM_COM_${command}`;
+            const result = await prismaClient.config.findFirst({
+                where: {
+                    key
+                },
+                select: {
+                    value: true
+                }
+            });
+            return result?.value;
+        }
     }
 
     public async getCustomCommandList(): Promise<string[]> {
         const key = `CUSTOM_COM_`;
-        const result = await prismaClient.config.findMany({
+        const customCommands = await prismaClient.config.findMany({
             where: {
                 key: {
                     startsWith: key
@@ -678,7 +715,11 @@ export class Discord {
                 key: 'asc'
             }
         });
-        return result.map(res => res.key.slice(key.length));
+        const result = customCommands.map(res => res.key.slice(key.length));
+        for (const pubCommand of this.publicCommands.map.values()) {
+            result.unshift(`${pubCommand.desc[0]}\t${pubCommand.desc[1]}`);
+        }
+        return result;
     }
 
     public async delCustomCommand(command: string): Promise<void> {
@@ -731,6 +772,17 @@ export type TDefaultCommand = {
     permission: PermissionResolvable | null;
     desc: [string, string][];
     callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
+};
+
+export type TPublicCommand = {
+    command: string;
+    minLength: number;
+    desc: [string, string][];
+    callback: (
+        msg: Message<boolean>,
+        args: Array<string>,
+        discord: Discord
+    ) => Promise<string | void>;
 };
 
 export type TRoutine = (discord: Discord) => Promise<void>;

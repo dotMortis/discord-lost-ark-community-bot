@@ -14,8 +14,11 @@ export const ADD_CUSTOM_COMMAND: TDefaultCommand = {
     ],
     callback: async (msg: Message<boolean>, args: string[], discord: Discord): Promise<void> => {
         const newCommand = args[2];
-        if (newCommand?.toLocaleLowerCase() === 'commands') {
-            await msg.reply('commands is reserviert');
+        if (
+            newCommand?.toLocaleLowerCase() === 'commands' ||
+            discord.publicCommands.get(newCommand)
+        ) {
+            await msg.reply(`${newCommand} ist reserviert`);
         } else {
             const value = args.slice(3).join(' ');
             await discord.setCustomCommand(newCommand, value);

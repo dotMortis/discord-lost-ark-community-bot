@@ -29,6 +29,7 @@ import {
     RENAME_EVENT,
     SWITCH_MEMBERS_EVENT_PARTY
 } from './discord/member-event-commands/member-event-commands';
+import { ROLL_PUB_COMMAND } from './discord/public-commands/roll.public-command';
 import { ALERT_REACTION } from './discord/reactions/alert.reaction';
 import { ITEMLEVEL_REACTION } from './discord/reactions/itemlevel.reaction';
 import { WELCOME_REACTION } from './discord/reactions/welcome.reaction';
@@ -44,14 +45,26 @@ export class Server {
 
     async init() {
         await connectPrismaClient();
-        await this.discord.init(
-            [ASSIGN_COMMAND, COMMAND_COMMAND, DEL_CUSTOM_COMMAND, ADD_CUSTOM_COMMAND],
-            [LIST_CALENDAR, ADD_EVENT, REMOVE_EVENT, SET_EVENT, UNSET_EVENT, UPDATE_EVENT],
-            [UPDATE_CALENDAR_ROUTINE, CLEAN_UP_ROUTINE, COMMANDS_CLEAN_UP_ROUTINE],
-            [WELCOME_REACTION, ALERT_REACTION, ITEMLEVEL_REACTION],
-            [ADVENTURE_ALERT],
-            [SERIA_EVENT_ALERT, GIFT_EVENT_ALERT],
-            [
+        await this.discord.init({
+            defaultCommands: [
+                ASSIGN_COMMAND,
+                COMMAND_COMMAND,
+                DEL_CUSTOM_COMMAND,
+                ADD_CUSTOM_COMMAND
+            ],
+            calCommands: [
+                LIST_CALENDAR,
+                ADD_EVENT,
+                REMOVE_EVENT,
+                SET_EVENT,
+                UNSET_EVENT,
+                UPDATE_EVENT
+            ],
+            routines: [UPDATE_CALENDAR_ROUTINE, CLEAN_UP_ROUTINE, COMMANDS_CLEAN_UP_ROUTINE],
+            reactions: [WELCOME_REACTION, ALERT_REACTION, ITEMLEVEL_REACTION],
+            alerts: [ADVENTURE_ALERT],
+            eventAlerts: [SERIA_EVENT_ALERT, GIFT_EVENT_ALERT],
+            memberEvents: [
                 ADD_MEMBER_EVENT,
                 REMOVE_MEMBER_EVENT,
                 DESCRIPE_EVENT,
@@ -64,7 +77,8 @@ export class Server {
                 LIST_EVENTS,
                 LOGS_EVENT,
                 RENAME_EVENT
-            ]
-        );
+            ],
+            publicCommands: [ROLL_PUB_COMMAND]
+        });
     }
 }
