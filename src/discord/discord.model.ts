@@ -320,7 +320,10 @@ export class Discord {
                         if (command.toLocaleLowerCase() === 'commands') {
                             const commands = await this.getCustomCommandList();
                             const commandsStr =
-                                'Alle Befehle:\n' + commands.map(com => '!' + com).join('\n');
+                                'Alle Befehle:\n' +
+                                commands
+                                    .map(com => (com.startsWith('!') ? com : '!' + com))
+                                    .join('\n');
                             await msg.reply(commandsStr);
                         } else {
                             const value = await this.getPublicOrCustomCommand(command);
@@ -333,7 +336,9 @@ export class Discord {
                                 const commands = await this.getCustomCommandList();
                                 const commandsStr =
                                     'Nicht gefunden. Alle Befehle:\n' +
-                                    commands.map(com => '!' + com).join('\n');
+                                    commands
+                                        .map(com => (com.startsWith('!') ? com : '!' + com))
+                                        .join('\n');
                                 await msg.reply(commandsStr);
                             }
                         }
@@ -717,7 +722,7 @@ export class Discord {
         });
         const result = customCommands.map(res => res.key.slice(key.length));
         for (const pubCommand of this.publicCommands.map.values()) {
-            result.unshift(`${pubCommand.desc[0]}\t${pubCommand.desc[1]}`);
+            result.unshift(`${pubCommand.desc[0][0]}\t${pubCommand.desc[0][1]}`);
         }
         return result;
     }
