@@ -186,8 +186,8 @@ export class MemberEventFactory extends EventEmitter {
                     await reaction.users.remove(user.id);
             }
         });
-        await this.updateAllEvents();
         this._isInit = true;
+        await this.updateAllEvents();
     }
 
     public async updateAllEvents(): Promise<void> {
