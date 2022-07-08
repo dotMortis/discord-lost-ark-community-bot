@@ -15,16 +15,18 @@ import {
 import { staticConfig } from '../config/static-config';
 import { prismaClient } from '../db/prisma-client';
 import { GetConfig, SetConfig } from '../models/config.model';
-import { MemberEventFactory } from '../models/member-event-factory';
+import { CustomEmojiFactory } from '../models/custom-emoji/custom-emoji-factory.model';
+import { MemberEventFactory } from '../models/member-event/member-event-factory';
 import { COMMAND_COMMAND } from './deault-commands/command.command';
 import { getEmbedCalendar } from './embeds/calendar.embed';
 
 export class Discord {
     //#region Properties
-    private _guildId: string;
+    private _guildId!: string;
     private readonly _prefix = '!dot';
     private _bot: Client;
     private readonly _memberEventFactory: MemberEventFactory;
+    private readonly _customEmojiFactory: CustomEmojiFactory;
 
     get memberEventFactory(): MemberEventFactory {
         return this._memberEventFactory;
@@ -147,7 +149,9 @@ export class Discord {
 
     //#region constructor
     constructor() {
-        this._memberEventFactory = new MemberEventFactory(this);
+        this._customEmojiFactory = new CustomEmojiFactory(this);
+        this._memberEventFactory = new MemberEventFactory(this, this._customEmojiFactory);
+        this._refCleanChannelIds = new Array<string>();
         this._calData = {
             commands: new Map<string, TCalCommand>(),
             channelId: '',
@@ -234,6 +238,7 @@ export class Discord {
         await this._initEventAlerts(eventAlerts);
         await this._initDefaultRole();
         this._routines(routines).catch(e => logger.error(e));
+        await this._customEmojiFactory.init();
         await this._memberEventFactory.init();
     }
 

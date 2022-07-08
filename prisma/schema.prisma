@@ -18,11 +18,12 @@ model GuildEvent {
 model Calendar {
     id           Int        @id @default(autoincrement()) @db.UnsignedInt
     guildEventId Int        @map("guild_event_id") @db.UnsignedInt
-    event        GuildEvent @relation(fields: [guildEventId], references: [id], onDelete: Cascade)
     dayOfWeek    Int        @map("day_of_week") @db.TinyInt
     time         String     @db.Char(6)
+    event        GuildEvent @relation(fields: [guildEventId], references: [id], onDelete: Cascade)
 
     @@unique([dayOfWeek, time])
+    @@index([guildEventId], map: "calendar_guild_event_id_fkey")
     @@map("calendar")
 }
 
@@ -35,7 +36,6 @@ model Config {
 
 model Event {
     id          Int         @id @default(autoincrement()) @db.UnsignedInt
-    isDone      Boolean     @default(false)
     description String?     @db.VarChar(255)
     channelId   String      @db.VarChar(255)
     messageId   String?     @db.VarChar(255)
@@ -43,11 +43,12 @@ model Event {
     dds         Int
     free        Int
     name        String
-    roles       EventRole[]
-    isDeleted   Boolean     @default(false) @map("is_deleted")
     creatorId   String      @map("creator_id")
-    partys      Party[]
+    isDone      Boolean     @default(false)
+    isDeleted   Boolean     @default(false) @map("is_deleted")
     eventLogs   EventLog[]
+    roles       EventRole[]
+    partys      Party[]
 
     @@map("event")
 }
@@ -56,20 +57,22 @@ model EventLog {
     id        String   @id @default(uuid()) @db.Char(36)
     message   String   @db.VarChar(255)
     createdAt DateTime @default(now()) @map("crated_at")
-    event     Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
     eventId   Int      @map("event_id") @db.UnsignedInt
+    event     Event    @relation(fields: [eventId], references: [id])
 
     @@index([createdAt])
+    @@index([eventId], map: "EventLog_event_id_fkey")
 }
 
 model EventRole {
     uid     String @id @default(uuid()) @db.Char(36)
     name    String @db.VarChar(255)
     id      String @db.VarChar(255)
-    event   Event  @relation(fields: [eventId], references: [id])
     eventId Int    @map("event_id") @db.UnsignedInt
+    event   Event  @relation(fields: [eventId], references: [id])
 
     @@index([id, name])
+    @@index([eventId], map: "event_role_event_id_fkey")
     @@map("event_role")
 }
 
@@ -77,11 +80,12 @@ model Party {
     id           Int           @id @default(autoincrement()) @db.UnsignedInt
     description  String?       @db.VarChar(255)
     isDone       Boolean       @default(false)
-    Event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
     eventId      Int           @map("event_id") @db.UnsignedInt
     createdAt    DateTime      @default(now()) @map("crated_at")
+    Event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
     partyMembers PartyMember[]
 
+    @@index([eventId], map: "party_event_id_fkey")
     @@map("party")
 }
 
@@ -90,14 +94,15 @@ model PartyMember {
     userId   String @map("user_id")
     charNo   Int    @map("char_no") @db.TinyInt
     memberNo Int    @map("member_no") @db.TinyInt
-    class    Class  @relation(fields: [classUid], references: [uid])
     classUid String @map("class_uid") @db.Char(36)
-    party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
     partyId  Int    @map("party_id") @db.UnsignedInt
-
+    class    Class  @relation(fields: [classUid], references: [uid])
+    party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
 
     @@unique([memberNo, partyId])
     @@unique([userId, partyId])
+    @@index([classUid], map: "party_member_class_uid_fkey")
+    @@index([partyId], map: "party_member_party_id_fkey")
     @@map("party_member")
 }
 
@@ -105,7 +110,6 @@ model Class {
     uid          String        @id @default(uuid()) @db.Char(36)
     name         String        @unique
     icon         String        @unique
-    iconId       String?       @unique @map("icon_id")
     role         Role
     partyMembers PartyMember[]
 

@@ -1,6 +1,6 @@
 import { Class, Event, EventRole, Party, PartyMember } from '@prisma/client';
 import { MessageEmbed } from 'discord.js';
-import { MemberEventFactory } from '../../models/member-event-factory';
+import { MemberEventFactory } from '../../models/member-event/member-event-factory';
 
 export const getEmbedMemberEvent = async (
     event: Event & {
@@ -38,9 +38,9 @@ export const getEmbedMemberEvent = async (
         for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
             memberValue += party.isDone ? '\n~~' : '\n';
             const member = party.partyMembers[memberIndex - 1];
-            memberValue += `#${member.memberNo} ${memberEventFactory.getIconStringFromClass(
-                member.class
-            )}[${member.charNo}] <@${member.userId}>`;
+            memberValue += `#${member.memberNo} ${memberEventFactory.toIconString(member.class)}[${
+                member.charNo
+            }] <@${member.userId}>`;
             if (party.isDone) memberValue += '~~';
 
             if (memberIndex % maxColumnSize === 0 || memberIndex === party.partyMembers.length) {

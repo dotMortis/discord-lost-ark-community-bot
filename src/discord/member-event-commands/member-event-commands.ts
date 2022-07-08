@@ -1,19 +1,7 @@
 import { logger } from '@bits_devel/logger';
 import { Message } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
-import {
-    EMemberEvent,
-    TCreateEvent,
-    TEventIsDone,
-    TMoveMember,
-    TPartyIsDone,
-    TRemoveEvent,
-    TRemoveMemberByPartyNumber,
-    TSwitchMembers,
-    TUpdateEventDesc,
-    TUpdateEventName,
-    TUpdateParytDesc
-} from '../../models/member-event-factory';
+
 import { Discord, TMemberEventCommand } from '../discord.model';
 
 export const ADD_MEMBER_EVENT: TMemberEventCommand = {
@@ -35,14 +23,14 @@ export const ADD_MEMBER_EVENT: TMemberEventCommand = {
         const name = args.slice(3).join(' ');
         if (name) {
             return discord.memberEventFactory
-                .action<TCreateEvent>({
+                .action<'CREATE_EVENT'>({
                     channelId: msg.channelId,
                     creatorId: msg.author.id,
                     dds: Number(dds),
                     free: Number(free),
                     name,
                     supps: Number(supps),
-                    type: EMemberEvent.CREATE_EVENT,
+                    type: 'CREATE_EVENT',
                     roleNames: []
                 })
                 .catch(e => {
@@ -66,9 +54,9 @@ export const REMOVE_MEMBER_EVENT: TMemberEventCommand = {
         const [trigger, command, eventId] = args;
         if (Number(eventId)) {
             return discord.memberEventFactory
-                .action<TRemoveEvent>({
+                .action<'REMOVE_EVENT'>({
                     eventId: Number(eventId),
-                    type: EMemberEvent.REMOVE_EVENT,
+                    type: 'REMOVE_EVENT',
                     actionUserId: msg.author.id
                 })
                 .catch(e => {
@@ -93,8 +81,8 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
         const desc = args.slice(3).join(' ');
         if (Number(eventId)) {
             await discord.memberEventFactory
-                .action<TUpdateEventDesc>({
-                    type: EMemberEvent.UPDATE_EVENT_DESC,
+                .action<'UPDATE_EVENT_DESC'>({
+                    type: 'UPDATE_EVENT_DESC',
                     description: desc,
                     eventId: Number(eventId),
                     actionUserId: msg.author.id
@@ -121,8 +109,8 @@ export const RENAME_EVENT: TMemberEventCommand = {
         const newEventName = args.slice(3).join(' ');
         if (Number(eventId)) {
             await discord.memberEventFactory
-                .action<TUpdateEventName>({
-                    type: EMemberEvent.UPDATE_EVENT_NAME,
+                .action<'UPDATE_EVENT_NAME'>({
+                    type: 'UPDATE_EVENT_NAME',
                     newEventName,
                     eventId: Number(eventId),
                     actionUserId: msg.author.id
@@ -150,8 +138,8 @@ export const DESCRIPE_EVENT_PARTY: TMemberEventCommand = {
         const desc = args.slice(4).join(' ');
         if (Number(eventId) && Number(partyNumber)) {
             await discord.memberEventFactory
-                .action<TUpdateParytDesc>({
-                    type: EMemberEvent.UPDATE_PARTY_DESC,
+                .action<'UPDATE_PARTY_DESC'>({
+                    type: 'UPDATE_PARTY_DESC',
                     description: desc,
                     eventId: Number(eventId),
                     partyNumber: Number(partyNumber),
@@ -193,8 +181,8 @@ export const SWITCH_MEMBERS_EVENT_PARTY: TMemberEventCommand = {
             Number(partyTwo)
         ) {
             await discord.memberEventFactory
-                .action<TSwitchMembers>({
-                    type: EMemberEvent.SWITCH_MEMBERS,
+                .action<'SWITCH_MEMBERS'>({
+                    type: 'SWITCH_MEMBERS',
                     eventId: Number(eventId),
                     memberOne: {
                         memberNumber: Number(memberOne),
@@ -234,8 +222,8 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
         const [partyOne, memberOne] = switchStr.split(':');
         if (Number(eventId) && Number(memberOne) && Number(partyOne) && Number(newPartyNumber)) {
             await discord.memberEventFactory
-                .action<TMoveMember>({
-                    type: EMemberEvent.MOVE_MEMBER,
+                .action<'MOVE_MEMBER'>({
+                    type: 'MOVE_MEMBER',
                     eventId: Number(eventId),
                     member: {
                         memberNumber: Number(memberOne),
@@ -267,8 +255,8 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
         const [partyOne, memberOne] = kickStr.split(':');
         if (Number(eventId) && Number(memberOne) && Number(partyOne)) {
             await discord.memberEventFactory
-                .action<TRemoveMemberByPartyNumber>({
-                    type: EMemberEvent.REMOVE_MEMBER_BY_PARTY_NUMBER,
+                .action<'REMOVE_MEMBER_BY_PARTY_NUMBER'>({
+                    type: 'REMOVE_MEMBER_BY_PARTY_NUMBER',
                     eventId: Number(eventId),
                     memberNumber: Number(memberOne),
                     partyNumber: Number(partyOne),
@@ -295,8 +283,8 @@ export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
         const [trigger, command, eventId, partyNumber] = args;
         if (Number(eventId) && Number(partyNumber)) {
             await discord.memberEventFactory
-                .action<TPartyIsDone>({
-                    type: EMemberEvent.PARTY_IS_DONE,
+                .action<'PARTY_IS_DONE'>({
+                    type: 'PARTY_IS_DONE',
                     eventId: Number(eventId),
                     partyNumber: Number(partyNumber),
                     actionUserId: msg.author.id
@@ -322,8 +310,8 @@ export const IS_DONE_EVENT: TMemberEventCommand = {
         const [trigger, command, eventId] = args;
         if (Number(eventId)) {
             await discord.memberEventFactory
-                .action<TEventIsDone>({
-                    type: EMemberEvent.EVENT_IS_DONE,
+                .action<'EVENT_IS_DONE'>({
+                    type: 'EVENT_IS_DONE',
                     eventId: Number(eventId),
                     actionUserId: msg.author.id
                 })
