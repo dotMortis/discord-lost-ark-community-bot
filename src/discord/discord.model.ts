@@ -31,6 +31,9 @@ export class Discord {
     get memberEventFactory(): MemberEventFactory {
         return this._memberEventFactory;
     }
+    get customEmojiFactory(): CustomEmojiFactory {
+        return this._customEmojiFactory;
+    }
 
     get commandsDesc(): [string, string][] {
         const commands = new Array<[string, string]>();
@@ -231,6 +234,7 @@ export class Discord {
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
+        await this._customEmojiFactory.init();
         this._initCommands(defaultCommands, calCommands, memberEvents, publicCommands);
         await this._initChannels();
         await this._initReactions(reactions);
@@ -238,7 +242,6 @@ export class Discord {
         await this._initEventAlerts(eventAlerts);
         await this._initDefaultRole();
         this._routines(routines).catch(e => logger.error(e));
-        await this._customEmojiFactory.init();
         await this._memberEventFactory.init();
     }
 

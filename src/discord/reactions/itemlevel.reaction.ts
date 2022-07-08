@@ -1,22 +1,35 @@
 import { MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
+import { TCustomEmojiName } from '../../models/custom-emoji/custom-emoji.collection';
 import { Discord, TReaction } from '../discord.model';
 import { getEmbedItemLevelReaction } from '../embeds/content-abo.embed';
 
 export const ITEMLEVEL_REACTION: TReaction = {
-    icons: [
-        '31efb88fe283a3',
-        '32efb88fe283a3',
-        '33efb88fe283a3',
-        '34efb88fe283a3',
-        '35efb88fe283a3',
-        '36efb88fe283a3',
-        '37efb88fe283a3',
-        '38efb88fe283a3',
-        '39efb88fe283a3'
+    icons: <Array<TCustomEmojiName>>[
+        'loa_t1',
+        'loa_t2',
+        'loa_argos',
+        'loa_argosp2',
+        'loa_argosp3',
+        'loa_valtannm',
+        'loa_valtanhm',
+        'loa_vykasnm',
+        'loa_vykashm',
+        'loa_kakul'
     ],
     ident: 'LEVEL_R',
-    roles: ['Tier1', 'Tier2', '1302+', '1340+', '1370+', '1385+', '1400+', '1415+', '1445+'],
-    desc: [['!dot assign LEVEL_R', 'Setzt den aktiven Channel für die Itemlevel-Abo-Nachricht']],
+    roles: [
+        'Tier1',
+        'Tier2',
+        'ArgosP1',
+        'ArgosP2',
+        'ArgosP3',
+        'ValtanNM',
+        'ValtanHM',
+        'VykasNM',
+        'VykasHM',
+        'Kakul'
+    ],
+    desc: [['!dot assign LEVEL_R', 'Setzt den aktiven Channel für die Content-Abo-Nachricht']],
     text: getEmbedItemLevelReaction,
     addCallback: async function (
         reaction: MessageReaction | PartialMessageReaction,
@@ -30,7 +43,7 @@ export const ITEMLEVEL_REACTION: TReaction = {
         user: User | PartialUser,
         discord: Discord
     ): Promise<void> {
-        const alertIndex = this.icons.indexOf(reactionHex);
+        const alertIndex = this.icons.indexOf(reaction.emoji.name || '');
         if (alertIndex === -1) {
             await reaction.remove();
         } else {
@@ -51,7 +64,7 @@ export const ITEMLEVEL_REACTION: TReaction = {
         user: User | PartialUser,
         discord: Discord
     ): Promise<void> {
-        const alertIndex = this.icons.indexOf(reactionHex);
+        const alertIndex = this.icons.indexOf(reaction.emoji.name || '');
         if (alertIndex === -1) {
             await reaction.remove();
         } else {
