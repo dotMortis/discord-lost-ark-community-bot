@@ -1,5 +1,5 @@
 import { logger } from '@bits_devel/logger';
-import { Message } from 'discord.js';
+import { Message, MessageAttachment } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
 
 import { LogMode } from '@prisma/client';
@@ -325,7 +325,15 @@ export const LOGS_EVENT: TMemberEventCommand = {
                     eventLog.createdAt.toLocaleTimeString()
                 }]\n${eventLog.message}\n\n`;
             }
-            return message || 'NO_LOGS';
+
+            await msg.reply({
+                files: [
+                    new MessageAttachment(
+                        Buffer.from(message),
+                        new Date().toISOString() + `_${eventId}.txt`
+                    )
+                ]
+            });
         } else {
             return 'Error:\n```' + LOGS_EVENT.desc[0] + '```';
         }
