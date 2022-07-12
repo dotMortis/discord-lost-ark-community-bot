@@ -205,7 +205,12 @@ export class MemberEventFactory extends EventEmitter {
     }
 
     public async setLogMode(eventId: number, mode: LogMode, actionUserId: string): Promise<void> {
-        const event = await prismaClient.event.update({
+        const event = await prismaClient.event.findFirstOrThrow({
+            where: {
+                id: eventId
+            }
+        });
+        await prismaClient.event.update({
             where: {
                 id: eventId
             },
@@ -213,7 +218,6 @@ export class MemberEventFactory extends EventEmitter {
                 logMode: mode
             }
         });
-        if (!event) throw Error('Event not found');
         event.logMode = mode;
         await this._createLog(`<@${actionUserId}> hat den Logmodus auf [${mode}] geändert`, event);
     }
