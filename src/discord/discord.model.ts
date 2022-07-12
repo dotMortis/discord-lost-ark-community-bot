@@ -399,6 +399,7 @@ export class Discord {
                 }
             } catch (e: any) {
                 await msg.reply('ERROR: ' + e?.message);
+                logger.error(e);
             }
         });
     }
