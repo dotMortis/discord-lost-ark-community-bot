@@ -314,6 +314,9 @@ export const LOGS_EVENT: TMemberEventCommand = {
             const eventLogs = await prismaClient.eventLog.findMany({
                 where: {
                     eventId: Number(eventId)
+                },
+                orderBy: {
+                    createdAt: 'asc'
                 }
             });
             let message = '';
