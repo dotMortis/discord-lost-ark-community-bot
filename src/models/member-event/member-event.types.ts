@@ -1,3 +1,4 @@
+import { Event } from '@prisma/client';
 export type TMemberEvents = {
     CREATE_EVENT: {
         type: 'CREATE_EVENT';
@@ -84,3 +85,5 @@ export type TMemberEvents = {
 export type TMemberEventName = keyof TMemberEvents;
 
 export type TMemberEvent = TMemberEvents[keyof TMemberEvents];
+
+export type TActionresult = { actionLog: string | null; event: Event };

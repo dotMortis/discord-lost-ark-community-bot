@@ -46,6 +46,7 @@ model Event {
     creatorId   String      @map("creator_id")
     isDone      Boolean     @default(false)
     isDeleted   Boolean     @default(false) @map("is_deleted")
+    logMode     LogMode     @default(FULL)
     eventLogs   EventLog[]
     roles       EventRole[]
     partys      Party[]
@@ -119,4 +120,10 @@ model Class {
 enum Role {
     DD
     SUPP
+}
+
+enum LogMode {
+    FULL
+    SILENT
+    NO_PING
 }

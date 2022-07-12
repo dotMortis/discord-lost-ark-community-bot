@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `event` ADD COLUMN `logMode` ENUM('FULL', 'SILENT', 'NO_PING') NOT NULL DEFAULT 'FULL';

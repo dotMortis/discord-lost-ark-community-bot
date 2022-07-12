@@ -24,6 +24,7 @@ import {
     KICK_MEMBER_EVENT_PARTY,
     LIST_EVENTS,
     LOGS_EVENT,
+    LOG_MODE_EVENT,
     MOVE_MEMBER_EVENT_PARTY,
     REMOVE_MEMBER_EVENT,
     RENAME_EVENT,
@@ -76,7 +77,8 @@ export class Server {
                 IS_DONE_EVENT,
                 LIST_EVENTS,
                 LOGS_EVENT,
-                RENAME_EVENT
+                RENAME_EVENT,
+                LOG_MODE_EVENT
             ],
             publicCommands: [ROLL_PUB_COMMAND]
         });

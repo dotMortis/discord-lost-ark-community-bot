@@ -2,6 +2,7 @@ import { logger } from '@bits_devel/logger';
 import { Message } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
 
+import { LogMode } from '@prisma/client';
 import { Discord, TMemberEventCommand } from '../discord.model';
 
 export const ADD_MEMBER_EVENT: TMemberEventCommand = {
@@ -22,21 +23,16 @@ export const ADD_MEMBER_EVENT: TMemberEventCommand = {
         const [dds = 0, supps = 0, free = 0] = classMapping.split(':');
         const name = args.slice(3).join(' ');
         if (name) {
-            return discord.memberEventFactory
-                .action<'CREATE_EVENT'>({
-                    channelId: msg.channelId,
-                    creatorId: msg.author.id,
-                    dds: Number(dds),
-                    free: Number(free),
-                    name,
-                    supps: Number(supps),
-                    type: 'CREATE_EVENT',
-                    roleNames: []
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + ADD_MEMBER_EVENT.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'CREATE_EVENT'>({
+                channelId: msg.channelId,
+                creatorId: msg.author.id,
+                dds: Number(dds),
+                free: Number(free),
+                name,
+                supps: Number(supps),
+                type: 'CREATE_EVENT',
+                roleNames: []
+            });
         } else {
             return 'Error:\n```' + ADD_MEMBER_EVENT.desc[0] + '```';
         }
@@ -53,16 +49,11 @@ export const REMOVE_MEMBER_EVENT: TMemberEventCommand = {
     ): Promise<void | string> => {
         const [trigger, command, eventId] = args;
         if (Number(eventId)) {
-            return discord.memberEventFactory
-                .action<'REMOVE_EVENT'>({
-                    eventId: Number(eventId),
-                    type: 'REMOVE_EVENT',
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + REMOVE_MEMBER_EVENT.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'REMOVE_EVENT'>({
+                eventId: Number(eventId),
+                type: 'REMOVE_EVENT',
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + REMOVE_MEMBER_EVENT.desc[0] + '```';
         }
@@ -80,17 +71,12 @@ export const DESCRIPE_EVENT: TMemberEventCommand = {
         const [trigger, command, eventId] = args;
         const desc = args.slice(3).join(' ');
         if (Number(eventId)) {
-            await discord.memberEventFactory
-                .action<'UPDATE_EVENT_DESC'>({
-                    type: 'UPDATE_EVENT_DESC',
-                    description: desc,
-                    eventId: Number(eventId),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + DESCRIPE_EVENT.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'UPDATE_EVENT_DESC'>({
+                type: 'UPDATE_EVENT_DESC',
+                description: desc,
+                eventId: Number(eventId),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + DESCRIPE_EVENT.desc[0] + '```';
         }
@@ -108,17 +94,12 @@ export const RENAME_EVENT: TMemberEventCommand = {
         const [trigger, command, eventId] = args;
         const newEventName = args.slice(3).join(' ');
         if (Number(eventId)) {
-            await discord.memberEventFactory
-                .action<'UPDATE_EVENT_NAME'>({
-                    type: 'UPDATE_EVENT_NAME',
-                    newEventName,
-                    eventId: Number(eventId),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + RENAME_EVENT.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'UPDATE_EVENT_NAME'>({
+                type: 'UPDATE_EVENT_NAME',
+                newEventName,
+                eventId: Number(eventId),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + RENAME_EVENT.desc[0] + '```';
         }
@@ -137,18 +118,13 @@ export const DESCRIPE_EVENT_PARTY: TMemberEventCommand = {
         if (!eventId || !partyNumber) return 'Error:\n```' + DESCRIPE_EVENT_PARTY.desc[0] + '```';
         const desc = args.slice(4).join(' ');
         if (Number(eventId) && Number(partyNumber)) {
-            await discord.memberEventFactory
-                .action<'UPDATE_PARTY_DESC'>({
-                    type: 'UPDATE_PARTY_DESC',
-                    description: desc,
-                    eventId: Number(eventId),
-                    partyNumber: Number(partyNumber),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + DESCRIPE_EVENT_PARTY.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'UPDATE_PARTY_DESC'>({
+                type: 'UPDATE_PARTY_DESC',
+                description: desc,
+                eventId: Number(eventId),
+                partyNumber: Number(partyNumber),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + DESCRIPE_EVENT_PARTY.desc[0] + '```';
         }
@@ -180,24 +156,19 @@ export const SWITCH_MEMBERS_EVENT_PARTY: TMemberEventCommand = {
             Number(partyOne) &&
             Number(partyTwo)
         ) {
-            await discord.memberEventFactory
-                .action<'SWITCH_MEMBERS'>({
-                    type: 'SWITCH_MEMBERS',
-                    eventId: Number(eventId),
-                    memberOne: {
-                        memberNumber: Number(memberOne),
-                        partyNumber: Number(partyOne)
-                    },
-                    memberTwo: {
-                        memberNumber: Number(memberTwo),
-                        partyNumber: Number(partyTwo)
-                    },
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + SWITCH_MEMBERS_EVENT_PARTY.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'SWITCH_MEMBERS'>({
+                type: 'SWITCH_MEMBERS',
+                eventId: Number(eventId),
+                memberOne: {
+                    memberNumber: Number(memberOne),
+                    partyNumber: Number(partyOne)
+                },
+                memberTwo: {
+                    memberNumber: Number(memberTwo),
+                    partyNumber: Number(partyTwo)
+                },
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + SWITCH_MEMBERS_EVENT_PARTY.desc[0] + '```';
         }
@@ -221,21 +192,16 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
         if (!(eventId && switchStr)) return 'Error:\n```' + MOVE_MEMBER_EVENT_PARTY.desc[0] + '```';
         const [partyOne, memberOne] = switchStr.split(':');
         if (Number(eventId) && Number(memberOne) && Number(partyOne) && Number(newPartyNumber)) {
-            await discord.memberEventFactory
-                .action<'MOVE_MEMBER'>({
-                    type: 'MOVE_MEMBER',
-                    eventId: Number(eventId),
-                    member: {
-                        memberNumber: Number(memberOne),
-                        partyNumber: Number(partyOne)
-                    },
-                    newPartyNumber: Number(newPartyNumber),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + MOVE_MEMBER_EVENT_PARTY.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'MOVE_MEMBER'>({
+                type: 'MOVE_MEMBER',
+                eventId: Number(eventId),
+                member: {
+                    memberNumber: Number(memberOne),
+                    partyNumber: Number(partyOne)
+                },
+                newPartyNumber: Number(newPartyNumber),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + MOVE_MEMBER_EVENT_PARTY.desc[0] + '```';
         }
@@ -254,18 +220,13 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
         if (!(eventId && kickStr)) return 'Error:\n```' + KICK_MEMBER_EVENT_PARTY.desc[0] + '```';
         const [partyOne, memberOne] = kickStr.split(':');
         if (Number(eventId) && Number(memberOne) && Number(partyOne)) {
-            await discord.memberEventFactory
-                .action<'REMOVE_MEMBER_BY_PARTY_NUMBER'>({
-                    type: 'REMOVE_MEMBER_BY_PARTY_NUMBER',
-                    eventId: Number(eventId),
-                    memberNumber: Number(memberOne),
-                    partyNumber: Number(partyOne),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + KICK_MEMBER_EVENT_PARTY.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'REMOVE_MEMBER_BY_PARTY_NUMBER'>({
+                type: 'REMOVE_MEMBER_BY_PARTY_NUMBER',
+                eventId: Number(eventId),
+                memberNumber: Number(memberOne),
+                partyNumber: Number(partyOne),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + KICK_MEMBER_EVENT_PARTY.desc[0] + '```';
         }
@@ -282,17 +243,12 @@ export const IS_DONE_EVENT_PARTY: TMemberEventCommand = {
     ): Promise<void | string> => {
         const [trigger, command, eventId, partyNumber] = args;
         if (Number(eventId) && Number(partyNumber)) {
-            await discord.memberEventFactory
-                .action<'PARTY_IS_DONE'>({
-                    type: 'PARTY_IS_DONE',
-                    eventId: Number(eventId),
-                    partyNumber: Number(partyNumber),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + IS_DONE_EVENT_PARTY.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'PARTY_IS_DONE'>({
+                type: 'PARTY_IS_DONE',
+                eventId: Number(eventId),
+                partyNumber: Number(partyNumber),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + IS_DONE_EVENT_PARTY.desc[0] + '```';
         }
@@ -309,16 +265,11 @@ export const IS_DONE_EVENT: TMemberEventCommand = {
     ): Promise<void | string> => {
         const [trigger, command, eventId] = args;
         if (Number(eventId)) {
-            await discord.memberEventFactory
-                .action<'EVENT_IS_DONE'>({
-                    type: 'EVENT_IS_DONE',
-                    eventId: Number(eventId),
-                    actionUserId: msg.author.id
-                })
-                .catch(e => {
-                    logger.error(e);
-                    return 'Error:\n```' + IS_DONE_EVENT.desc[0] + '```';
-                });
+            await discord.memberEventFactory.action<'EVENT_IS_DONE'>({
+                type: 'EVENT_IS_DONE',
+                eventId: Number(eventId),
+                actionUserId: msg.author.id
+            });
         } else {
             return 'Error:\n```' + IS_DONE_EVENT.desc[0] + '```';
         }
@@ -367,15 +318,7 @@ export const LOGS_EVENT: TMemberEventCommand = {
             });
             let message = '';
             for (const eventLog of eventLogs) {
-                const regResults = eventLog.message.match(/\<\@[0-9]+\>/g);
-                for (const regResult of regResults || []) {
-                    const userId = regResult.substring(2, regResult.length - 1);
-                    const user = discord.guild.members.cache.get(userId);
-                    eventLog.message.replace(
-                        regResult,
-                        '[' + (user?.nickname || user?.displayName || 'UNKOWN_USER') + ']'
-                    );
-                }
+                eventLog.message = discord.removeUserPingFromMessage(eventLog.message);
                 message += `[${
                     eventLog.createdAt.toLocaleDateString() +
                     ' - ' +
@@ -383,6 +326,27 @@ export const LOGS_EVENT: TMemberEventCommand = {
                 }]\n${eventLog.message}\n\n`;
             }
             return message || 'NO_LOGS';
+        } else {
+            return 'Error:\n```' + LOGS_EVENT.desc[0] + '```';
+        }
+    }
+};
+
+export const LOG_MODE_EVENT: TMemberEventCommand = {
+    command: 'logmode',
+    desc: [['!event logmode <eventId> <FULL|SILENT|NO_PING>', 'Setzt den Logmodus für ein Event']],
+    callback: async (
+        msg: Message<boolean>,
+        args: string[],
+        discord: Discord
+    ): Promise<void | string> => {
+        const [trigger, command, eventId, mode] = args;
+        if (Number(eventId) && mode in LogMode) {
+            await discord.memberEventFactory.setLogMode(
+                Number(eventId),
+                <LogMode>mode,
+                msg.author.id
+            );
         } else {
             return 'Error:\n```' + LOGS_EVENT.desc[0] + '```';
         }

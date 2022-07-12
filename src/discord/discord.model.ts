@@ -200,6 +200,19 @@ export class Discord {
     }
     //#endregion
 
+    public removeUserPingFromMessage(message: string): string {
+        const regResults = message.match(/\<\@[0-9]+\>/g);
+        for (const regResult of regResults || []) {
+            const userId = regResult.substring(2, regResult.length - 1);
+            const user = this.guild.members.cache.get(userId);
+            message = message.replace(
+                regResult,
+                '[' + (user?.nickname || user?.displayName || 'UNKOWN_USER') + ']'
+            );
+        }
+        return message;
+    }
+
     async init(middlewares: {
         defaultCommands: Array<TDefaultCommand>;
         calCommands: Array<TCalCommand>;
