@@ -84,7 +84,7 @@ model PartyMember {
     charNo   Int    @map("char_no") @db.TinyInt
     memberNo Int    @map("member_no") @db.TinyInt
     classUid String @map("class_uid") @db.Char(36)
-    partyId  Int    @map("party_id") @db.Int
+    partyId  Int    @map("party_id") @db.UnsignedInt
     class    Class  @relation(fields: [classUid], references: [uid])
     party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
 
