@@ -256,12 +256,12 @@ export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
         const [trigger, command, eventId, kickStr] = args;
         if (!(eventId && kickStr)) return 'Error:\n```' + KICK_MEMBER_EVENT_PARTY.desc[0] + '```';
         const [partyOne, memberOne] = kickStr.split(':');
-        if (Number(eventId) && Number(memberOne) && Number(partyOne)) {
+        if (Number(eventId) && Number(memberOne) && (partyOne.match(/^e$/i) || Number(partyOne))) {
             await discord.memberEventFactory.action<'REMOVE_MEMBER_BY_PARTY_NUMBER'>({
                 type: 'REMOVE_MEMBER_BY_PARTY_NUMBER',
                 eventId: Number(eventId),
                 memberNumber: Number(memberOne),
-                partyNumber: Number(partyOne),
+                partyNumber: Number(partyOne) || <'e'>partyOne.toLowerCase(),
                 actionUserId: msg.author.id
             });
         } else {

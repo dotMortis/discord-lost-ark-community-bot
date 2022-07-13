@@ -46,7 +46,7 @@ export type TMemberEvents = {
         type: 'REMOVE_MEMBER_BY_PARTY_NUMBER';
         eventId: number;
         memberNumber: number;
-        partyNumber: number;
+        partyNumber: number | 'e';
         actionUserId: string;
     };
     MOVE_MEMBER: {

@@ -508,7 +508,7 @@ export class MemberEventFactory extends EventEmitter {
     private async _removeMemberByPartyNumber(
         eventId: number,
         memberNumber: number,
-        partyNumber: number,
+        partyNumber: number | 'e',
         actionUserId: string
     ): Promise<TActionresult> {
         const event = await prismaClient.event.findFirstOrThrow({
@@ -516,7 +516,10 @@ export class MemberEventFactory extends EventEmitter {
                 id: eventId
             }
         });
-        const party = await this._getPartyByNumber(eventId, partyNumber, true);
+        const party =
+            partyNumber === -1 || partyNumber === 'e'
+                ? await this._getSparePartyFromEventId(eventId)
+                : await this._getPartyByNumber(eventId, partyNumber, true);
         const partyMember = party?.partyMembers.find(member => member.memberNo === memberNumber);
         let actionLog: string | null = null;
         if (partyMember) {
