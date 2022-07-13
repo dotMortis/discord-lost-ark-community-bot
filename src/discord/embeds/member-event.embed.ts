@@ -1,14 +1,18 @@
-import { Class, Event, EventRole, Party, PartyMember } from '@prisma/client';
+import { Class, Event, Party, PartyMember } from '@prisma/client';
 import { MessageEmbed } from 'discord.js';
 import { MemberEventFactory } from '../../models/member-event/member-event-factory';
 
 export const getEmbedMemberEvent = async (
     event: Event & {
-        roles: EventRole[];
         partys: (Party & {
             partyMembers: (PartyMember & {
                 class: Class;
             })[];
+        })[];
+    },
+    spareParty: Party & {
+        partyMembers: (PartyMember & {
+            class: Class;
         })[];
     },
     memberEventFactory: MemberEventFactory
@@ -24,6 +28,7 @@ export const getEmbedMemberEvent = async (
     embed.setTitle(title);
     embed.setDescription(description + '\n' + id);
 
+    const maxColumnSize = 4;
     for (let partyIndex = 1; partyIndex <= event.partys.length; partyIndex++) {
         const party = event.partys[partyIndex - 1];
         if (!party.partyMembers.length && !party.description) continue;
@@ -33,7 +38,6 @@ export const getEmbedMemberEvent = async (
         if (party.isDone) groupTitle += '~~';
 
         let memberValue = '';
-        const maxColumnSize = 4;
         let columnCount = 1;
         for (let memberIndex = 1; memberIndex <= party.partyMembers.length; memberIndex++) {
             memberValue += party.isDone ? '\n~~' : '\n';
@@ -54,13 +58,39 @@ export const getEmbedMemberEvent = async (
                     memberValue = '';
                 } else {
                     embed.addField('\u200B', memberValue, true);
-                    if (columnCount % 2 === 0) embed.addField('\u200B', '\u200B');
+                    if (columnCount % 2 === 0 && party.partyMembers.length > memberIndex) {
+                        embed.addField('\u200B', '\u200B');
+                    }
                     memberValue = '';
                 }
                 columnCount++;
             }
         }
-        if (partyIndex < event.partys.length) embed.addField('\u200B', '\u200B');
+        embed.addField('\u200B', '\u200B');
+    }
+    let memberValue = '';
+    let columnCount = 1;
+    const groupTitle = 'Ersatzbank';
+    for (let memberIndex = 1; memberIndex <= spareParty.partyMembers.length; memberIndex++) {
+        memberValue += '\n';
+        const member = spareParty.partyMembers[memberIndex - 1];
+        memberValue += `#${member.memberNo} ${memberEventFactory.toIconString(member.class)}[${
+            member.charNo
+        }] <@${member.userId}>`;
+
+        if (memberIndex % maxColumnSize === 0 || memberIndex === spareParty.partyMembers.length) {
+            if (columnCount === 1) {
+                embed.addField(groupTitle, memberValue, true);
+                memberValue = '';
+            } else {
+                embed.addField('\u200B', memberValue, true);
+                if (columnCount % 2 === 0 && spareParty.partyMembers.length > memberIndex) {
+                    embed.addField('\u200B', '\u200B');
+                }
+                memberValue = '';
+            }
+            columnCount++;
+        }
     }
     embed.setFooter({ text: 'Wahrnehmung des Termins ist bei Anmeldung verpflichtend!' });
     return embed;

@@ -208,6 +208,38 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
     }
 };
 
+export const MOVE_MEMBER_EVENT_SPARE: TMemberEventCommand = {
+    command: 'spare',
+    desc: [
+        [
+            '!event spare <eventId> <partyId:memberId>',
+            'Schiebt einen Spieler innerhalb eines Events auf die Ersatzbank'
+        ]
+    ],
+    callback: async (
+        msg: Message<boolean>,
+        args: string[],
+        discord: Discord
+    ): Promise<void | string> => {
+        const [trigger, command, eventId, switchStr] = args;
+        if (!(eventId && switchStr)) return 'Error:\n```' + MOVE_MEMBER_EVENT_SPARE.desc[0] + '```';
+        const [partyNumber, memberNumber] = switchStr.split(':');
+        if (Number(eventId) && Number(memberNumber) && Number(partyNumber)) {
+            await discord.memberEventFactory.action<'MOVE_MEMBER_TO_SPARE'>({
+                type: 'MOVE_MEMBER_TO_SPARE',
+                eventId: Number(eventId),
+                member: {
+                    memberNumber: Number(memberNumber),
+                    partyNumber: Number(partyNumber)
+                },
+                actionUserId: msg.author.id
+            });
+        } else {
+            return 'Error:\n```' + MOVE_MEMBER_EVENT_SPARE.desc[0] + '```';
+        }
+    }
+};
+
 export const KICK_MEMBER_EVENT_PARTY: TMemberEventCommand = {
     command: 'kick',
     desc: [['!event kick <eventId> <partyId:memberId>', 'Kickt einen Spieler aus einem Event']],

@@ -80,6 +80,12 @@ export type TMemberEvents = {
         newEventName: string;
         actionUserId: string;
     };
+    MOVE_MEMBER_TO_SPARE: {
+        type: 'MOVE_MEMBER_TO_SPARE';
+        eventId: number;
+        member: { memberNumber: number; partyNumber: number };
+        actionUserId: string;
+    };
 };
 
 export type TMemberEventName = keyof TMemberEvents;

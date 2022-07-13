@@ -35,20 +35,19 @@ model Config {
 }
 
 model Event {
-    id          Int         @id @default(autoincrement()) @db.UnsignedInt
-    description String?     @db.VarChar(255)
-    channelId   String      @db.VarChar(255)
-    messageId   String?     @db.VarChar(255)
+    id          Int        @id @default(autoincrement()) @db.UnsignedInt
+    description String?    @db.VarChar(255)
+    channelId   String     @db.VarChar(255)
+    messageId   String?    @db.VarChar(255)
     supps       Int
     dds         Int
     free        Int
     name        String
-    creatorId   String      @map("creator_id")
-    isDone      Boolean     @default(false)
-    isDeleted   Boolean     @default(false) @map("is_deleted")
-    logMode     LogMode     @default(FULL)
+    creatorId   String     @map("creator_id")
+    isDone      Boolean    @default(false)
+    isDeleted   Boolean    @default(false) @map("is_deleted")
+    logMode     LogMode    @default(FULL)
     eventLogs   EventLog[]
-    roles       EventRole[]
     partys      Party[]
 
     @@map("event")
@@ -65,18 +64,6 @@ model EventLog {
     @@index([eventId], map: "EventLog_event_id_fkey")
 }
 
-model EventRole {
-    uid     String @id @default(uuid()) @db.Char(36)
-    name    String @db.VarChar(255)
-    id      String @db.VarChar(255)
-    eventId Int    @map("event_id") @db.UnsignedInt
-    event   Event  @relation(fields: [eventId], references: [id])
-
-    @@index([id, name])
-    @@index([eventId], map: "event_role_event_id_fkey")
-    @@map("event_role")
-}
-
 model Party {
     id           Int           @id @default(autoincrement()) @db.UnsignedInt
     description  String?       @db.VarChar(255)
@@ -84,6 +71,7 @@ model Party {
     eventId      Int           @map("event_id") @db.UnsignedInt
     createdAt    DateTime      @default(now()) @map("crated_at")
     Event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    isSpareBench Boolean       @default(false) @map("is_spare_bench")
     partyMembers PartyMember[]
 
     @@index([eventId], map: "party_event_id_fkey")
@@ -96,12 +84,11 @@ model PartyMember {
     charNo   Int    @map("char_no") @db.TinyInt
     memberNo Int    @map("member_no") @db.TinyInt
     classUid String @map("class_uid") @db.Char(36)
-    partyId  Int    @map("party_id") @db.UnsignedInt
+    partyId  Int    @map("party_id") @db.Int
     class    Class  @relation(fields: [classUid], references: [uid])
     party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
 
     @@unique([memberNo, partyId])
-    @@unique([userId, partyId])
     @@index([classUid], map: "party_member_class_uid_fkey")
     @@index([partyId], map: "party_member_party_id_fkey")
     @@map("party_member")
