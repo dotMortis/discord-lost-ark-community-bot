@@ -52,7 +52,7 @@ export type TMemberEvents = {
     MOVE_MEMBER: {
         type: 'MOVE_MEMBER';
         eventId: number;
-        member: { memberNumber: number; partyNumber: number };
+        member: { memberNumber: number; partyNumber: number | 'e' };
         newPartyNumber: number;
         actionUserId: string;
     };

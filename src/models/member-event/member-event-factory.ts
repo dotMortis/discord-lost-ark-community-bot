@@ -664,7 +664,7 @@ export class MemberEventFactory extends EventEmitter {
 
     private async _moveMember(
         eventId: number,
-        member: { memberNumber: number; partyNumber: number },
+        member: { memberNumber: number; partyNumber: number | 'e' },
         newPartyNumber: number,
         actionUserId: string
     ): Promise<TActionresult> {
@@ -673,48 +673,88 @@ export class MemberEventFactory extends EventEmitter {
         let partyToMove: (Party & { partyMembers: PartyMember[] }) | null = null;
         let partyMemberToMove: PartyMember | undefined;
         let actionLog: string | null = null;
-        for (let z = 0; z < partys.length; z++) {
-            const party = partys[z];
-            if (z + 1 === member.partyNumber) {
-                partyMemberToMove = party.partyMembers.find(
-                    partyMember => partyMember.memberNo === member.memberNumber
-                );
-            }
-            if (z + 1 === newPartyNumber) {
-                partyToMove = party;
-            }
-            if (partyToMove && partyMemberToMove) {
-                const duplicatePartyMember = partyToMove.partyMembers.find(
-                    partyMember => partyMember.userId === partyMemberToMove?.userId
-                );
-                if (duplicatePartyMember) {
-                    const spareParty = await this._getSparePartyFromEventId(eventId);
-                    await prismaClient.partyMember.update({
-                        where: {
-                            uid: duplicatePartyMember.uid
-                        },
-                        data: {
-                            partyId: spareParty.id
-                        }
-                    });
-                }
-                partyToMove.partyMembers.sort((a, b) => a.memberNo - b.memberNo);
-                let memberNo = 1;
-                for (const partyMember of partyToMove.partyMembers) {
-                    if (partyMember.memberNo !== memberNo) break;
-                    memberNo++;
-                }
+
+        if (member.partyNumber === -1 || member.partyNumber === 'e') {
+            const spareParty = await this._getSparePartyFromEventId(event.id);
+            partyMemberToMove = spareParty.partyMembers.find(
+                spareMember => spareMember.memberNo === member.memberNumber
+            );
+            if (!partyMemberToMove) throw new Error('Member not found');
+            partyToMove = partys[newPartyNumber - 1];
+            if (!partyToMove) throw new Error('Party not found');
+            const duplicatePartyMember = partyToMove.partyMembers.find(
+                partyMember => partyMember.userId === partyMemberToMove?.userId
+            );
+            if (duplicatePartyMember) {
                 await prismaClient.partyMember.update({
                     where: {
-                        uid: partyMemberToMove.uid
+                        uid: duplicatePartyMember.uid
                     },
                     data: {
-                        partyId: partyToMove.id,
-                        memberNo
+                        partyId: spareParty.id
                     }
                 });
-                actionLog = `<@${actionUserId}> hat [<@${partyMemberToMove.userId}> Group #${member.partyNumber} Member #${member.memberNumber}] nach Group #${newPartyNumber} geschoben`;
-                break;
+            }
+            partyToMove.partyMembers.sort((a, b) => a.memberNo - b.memberNo);
+            let memberNo = 1;
+            for (const partyMember of partyToMove.partyMembers) {
+                if (partyMember.memberNo !== memberNo) break;
+                memberNo++;
+            }
+            await prismaClient.partyMember.update({
+                where: {
+                    uid: partyMemberToMove.uid
+                },
+                data: {
+                    partyId: partyToMove.id,
+                    memberNo
+                }
+            });
+            actionLog = `<@${actionUserId}> hat [<@${partyMemberToMove.userId}> Ersatzbank Member #${member.memberNumber}] nach Group #${newPartyNumber} geschoben`;
+        } else {
+            for (let z = 0; z < partys.length; z++) {
+                const party = partys[z];
+                if (z + 1 === member.partyNumber) {
+                    partyMemberToMove = party.partyMembers.find(
+                        partyMember => partyMember.memberNo === member.memberNumber
+                    );
+                }
+                if (z + 1 === newPartyNumber) {
+                    partyToMove = party;
+                }
+                if (partyToMove && partyMemberToMove) {
+                    const duplicatePartyMember = partyToMove.partyMembers.find(
+                        partyMember => partyMember.userId === partyMemberToMove?.userId
+                    );
+                    if (duplicatePartyMember) {
+                        const spareParty = await this._getSparePartyFromEventId(eventId);
+                        await prismaClient.partyMember.update({
+                            where: {
+                                uid: duplicatePartyMember.uid
+                            },
+                            data: {
+                                partyId: spareParty.id
+                            }
+                        });
+                    }
+                    partyToMove.partyMembers.sort((a, b) => a.memberNo - b.memberNo);
+                    let memberNo = 1;
+                    for (const partyMember of partyToMove.partyMembers) {
+                        if (partyMember.memberNo !== memberNo) break;
+                        memberNo++;
+                    }
+                    await prismaClient.partyMember.update({
+                        where: {
+                            uid: partyMemberToMove.uid
+                        },
+                        data: {
+                            partyId: partyToMove.id,
+                            memberNo
+                        }
+                    });
+                    actionLog = `<@${actionUserId}> hat [<@${partyMemberToMove.userId}> Group #${member.partyNumber} Member #${member.memberNumber}] nach Group #${newPartyNumber} geschoben`;
+                    break;
+                }
             }
         }
         return { event, actionLog };

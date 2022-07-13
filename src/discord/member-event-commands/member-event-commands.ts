@@ -191,13 +191,18 @@ export const MOVE_MEMBER_EVENT_PARTY: TMemberEventCommand = {
         const [trigger, command, eventId, switchStr, newPartyNumber] = args;
         if (!(eventId && switchStr)) return 'Error:\n```' + MOVE_MEMBER_EVENT_PARTY.desc[0] + '```';
         const [partyOne, memberOne] = switchStr.split(':');
-        if (Number(eventId) && Number(memberOne) && Number(partyOne) && Number(newPartyNumber)) {
+        if (
+            Number(eventId) &&
+            Number(memberOne) &&
+            (partyOne.match(/^e$/i) || Number(partyOne)) &&
+            Number(newPartyNumber)
+        ) {
             await discord.memberEventFactory.action<'MOVE_MEMBER'>({
                 type: 'MOVE_MEMBER',
                 eventId: Number(eventId),
                 member: {
                     memberNumber: Number(memberOne),
-                    partyNumber: Number(partyOne)
+                    partyNumber: Number(partyOne) || <'e'>partyOne.toLowerCase()
                 },
                 newPartyNumber: Number(newPartyNumber),
                 actionUserId: msg.author.id
