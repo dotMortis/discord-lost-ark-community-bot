@@ -254,8 +254,8 @@ export class Discord {
         await this._initAlerts(alerts);
         await this._initEventAlerts(eventAlerts);
         await this._initDefaultRole();
-        this._routines(routines).catch(e => logger.error(e));
         await this._memberEventFactory.init();
+        this._routines(routines).catch(e => logger.error(e));
     }
 
     public async updateCalendar(): Promise<void> {

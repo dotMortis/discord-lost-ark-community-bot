@@ -1222,7 +1222,7 @@ export class MemberEventFactory extends EventEmitter {
                 if (event.logMode === 'NO_PING') {
                     message = this._discord.removeUserPingFromMessage(message);
                 }
-                await dcMessage?.thread?.send(message);
+                await dcMessage?.thread?.send('LOG: ' + message);
             }
         }
     }
