@@ -30,8 +30,7 @@ export const ADD_MEMBER_EVENT: TMemberEventCommand = {
                 free: Number(free),
                 name,
                 supps: Number(supps),
-                type: 'CREATE_EVENT',
-                roleNames: []
+                type: 'CREATE_EVENT'
             });
         } else {
             return 'Error:\n```' + ADD_MEMBER_EVENT.desc[0] + '```';
@@ -388,7 +387,8 @@ export const LOG_MODE_EVENT: TMemberEventCommand = {
         args: string[],
         discord: Discord
     ): Promise<void | string> => {
-        const [trigger, command, eventId, mode] = args;
+        let [trigger, command, eventId, mode] = args;
+        mode = mode?.toUpperCase();
         if (Number(eventId) && mode in LogMode) {
             await discord.memberEventFactory.setLogMode(
                 Number(eventId),
@@ -396,7 +396,7 @@ export const LOG_MODE_EVENT: TMemberEventCommand = {
                 msg.author.id
             );
         } else {
-            return 'Error:\n```' + LOGS_EVENT.desc[0] + '```';
+            return 'Error:\n```' + LOG_MODE_EVENT.desc[0] + '```';
         }
     }
 };
