@@ -1,7 +1,7 @@
 import * as bcrypt from 'bcryptjs';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomFillSync } from 'crypto';
 import { v4 } from 'uuid';
-import { staticConfig } from '../config/static-config';
+import { staticConfig } from '../../config/static-config';
 
 export class SecureConfig {
     static encryptValue(val: string): string {

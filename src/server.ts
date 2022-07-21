@@ -39,11 +39,14 @@ import { CLEAN_UP_ROUTINE } from './discord/routines/clean-up.routine';
 import { COMMANDS_CLEAN_UP_ROUTINE } from './discord/routines/commands-clean-up.routine';
 import { MEMBER_EVENT_CLEAN_UP_ROUTINE } from './discord/routines/member-event-log-clean-up.routine';
 import { UPDATE_CALENDAR_ROUTINE } from './discord/routines/update-calendar.routine';
+import { Rest } from './rest/rest';
 export class Server {
     discord: Discord;
+    rest: Rest;
 
     constructor() {
         this.discord = new Discord();
+        this.rest = new Rest();
     }
 
     async init() {
@@ -90,5 +93,6 @@ export class Server {
             ],
             publicCommands: [ROLL_PUB_COMMAND]
         });
+        await this.rest.startServer();
     }
 }

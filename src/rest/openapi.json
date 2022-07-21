@@ -1,0 +1,403 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Discord LOA Community Bot API",
+        "version": "1"
+    },
+    "servers": [
+        {
+            "url": "{protocol}://{environment}/v1",
+            "variables": {
+                "protocol": {
+                    "default": "https",
+                    "enum": ["http", "https"]
+                },
+                "environment": {
+                    "default": "api.onlinesizing.bike",
+                    "enum": ["localhost:8081", "api.loa.ragtag.rocks"]
+                }
+            }
+        }
+    ],
+    "security": [
+        {
+            "CookieJWT": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "auth"
+        },
+        {
+            "name": "eventFactory"
+        }
+    ],
+    "paths": {
+        "/login": {
+            "post": {
+                "tags": ["auth"],
+                "parameters": [
+                    {
+                        "name": "longTime",
+                        "in": "query",
+                        "required": false,
+                        "style": "form",
+                        "explode": true,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "jwt cookie too set",
+                        "headers": {
+                            "Set-Cookie": {
+                                "style": "simple",
+                                "explode": false,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ]
+            }
+        },
+        "/events": {
+            "get": {
+                "tags": ["eventFactory"],
+                "responses": {
+                    "200": {
+                        "description": "events list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventList"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": ["eventFactory"],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EventPost"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "event created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdNumberOnly"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/event/{eventId}": {
+            "get": {
+                "tags": ["eventFactory"],
+                "parameters": [
+                    {
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true,
+                        "style": "simple",
+                        "explode": false,
+                        "schema": {
+                            "$ref": "#/components/schemas/IdNumber"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "event",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventSingle"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": ["eventFactory"],
+                "parameters": [
+                    {
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true,
+                        "style": "simple",
+                        "explode": false,
+                        "schema": {
+                            "$ref": "#/components/schemas/IdNumber"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EventPatch"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "event created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Empty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "IdNumber": {
+                "type": "number",
+                "format": "int32"
+            },
+            "IdNumberOnly": {
+                "required": ["id"],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "$ref": "#/components/schemas/IdNumber"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "IdUuidOnly": {
+                "required": ["uid"],
+                "type": "object",
+                "properties": {
+                    "uid": {
+                        "$ref": "#/components/schemas/IdUuid"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "IdUuid": {
+                "type": "string",
+                "format": "uuid"
+            },
+            "EventSingle": {
+                "required": [
+                    "channelName",
+                    "creatorName",
+                    "dds",
+                    "free",
+                    "id",
+                    "isDone",
+                    "logMode",
+                    "name",
+                    "supps"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "$ref": "#/components/schemas/IdNumber"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "supps": {
+                        "type": "number",
+                        "format": "int32"
+                    },
+                    "dds": {
+                        "type": "number",
+                        "format": "int32"
+                    },
+                    "free": {
+                        "type": "number",
+                        "format": "int32"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "channelName": {
+                        "type": "string"
+                    },
+                    "creatorName": {
+                        "type": "string"
+                    },
+                    "isDone": {
+                        "type": "boolean"
+                    },
+                    "logMode": {
+                        "$ref": "#/components/schemas/EventLogMode"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "EventList": {
+                "type": "array",
+                "additionalProperties": false,
+                "items": {
+                    "$ref": "#/components/schemas/EventSingle"
+                }
+            },
+            "EventPost": {
+                "required": [
+                    "channelId",
+                    "dds",
+                    "description",
+                    "free",
+                    "isDone",
+                    "logMode",
+                    "name",
+                    "supps"
+                ],
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "supps": {
+                        "type": "number",
+                        "format": "int32"
+                    },
+                    "dds": {
+                        "type": "number",
+                        "format": "int32"
+                    },
+                    "free": {
+                        "type": "number",
+                        "format": "int32"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "channelId": {
+                        "type": "string"
+                    },
+                    "logMode": {
+                        "$ref": "#/components/schemas/EventLogMode"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "EventPatch": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "logMode": {
+                        "$ref": "#/components/schemas/EventLogMode"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "EventLogMode": {
+                "type": "string",
+                "enum": ["FULL", "SILENT", "NO_PING"]
+            },
+            "Empty": {
+                "type": "object",
+                "additionalProperties": false
+            },
+            "Error": {
+                "required": ["message"],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "BasicAuth": {
+                "type": "http",
+                "scheme": "basic"
+            },
+            "CookieJWT": {
+                "type": "apiKey",
+                "name": "jwt",
+                "in": "cookie"
+            }
+        }
+    }
+}

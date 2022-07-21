@@ -45,7 +45,21 @@ const _staticConfig = {
             }
         },
         credentials: true
-    }
+    },
+    redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        prefix: process.env.REDIS_PREFIX || 'loabot'
+    },
+    jwt: {
+        jwtSecret: process.env.JWT_SECRET,
+        ttl: '4h',
+        refreshTtlInMin: 20
+    },
+    cookie: {
+        sameSite: process.env.COOKIE_SAME_SITE === 'none' ? 'none' : 'strict',
+        secure: process.env.COOKIE_SECURE === 'true'
+    },
+    port: 8081
 };
 
 export const staticConfig = () => _staticConfig;
