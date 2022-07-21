@@ -1,10 +1,9 @@
 import { logger } from '@bits_devel/logger';
-import { Server } from './src/server';
+import { SERVER } from './src/server';
 
 const start = async () => {
     try {
-        const server = new Server();
-        await server.init();
+        await SERVER.init();
     } catch (error: any) {
         logger.error(error);
     }

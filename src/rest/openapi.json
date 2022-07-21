@@ -29,6 +29,9 @@
             "name": "auth"
         },
         {
+            "name": "discord"
+        },
+        {
             "name": "eventFactory"
         }
     ],
@@ -111,6 +114,33 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Empty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/discord": {
+            "get": {
+                "tags": ["discord"],
+                "responses": {
+                    "200": {
+                        "description": "discord info",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DiscordInfo"
                                 }
                             }
                         }
@@ -305,6 +335,22 @@
                 "type": "string",
                 "format": "uuid"
             },
+            "DiscordInfo": {
+                "required": ["channels", "name"],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "channels": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DiscordInfo_channels"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
             "EventSingle": {
                 "required": [
                     "channelName",
@@ -435,6 +481,20 @@
                         "type": "string"
                     }
                 }
+            },
+            "DiscordInfo_channels": {
+                "required": ["id", "name"],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false,
+                "example": null
             }
         },
         "securitySchemes": {

@@ -6,4 +6,4 @@ export type ApiRequestHandler = (
     apiRequest: ApiRequest,
     apiResponse: ApiResponse,
     next: NextFunction
-) => void;
+) => Promise<void> | void;

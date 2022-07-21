@@ -41,7 +41,7 @@ import { COMMANDS_CLEAN_UP_ROUTINE } from './discord/routines/commands-clean-up.
 import { MEMBER_EVENT_CLEAN_UP_ROUTINE } from './discord/routines/member-event-log-clean-up.routine';
 import { UPDATE_CALENDAR_ROUTINE } from './discord/routines/update-calendar.routine';
 import { Rest } from './rest/rest';
-export class Server {
+class Server {
     discord: Discord;
     rest: Rest;
 
@@ -97,3 +97,5 @@ export class Server {
         await this.rest.startServer();
     }
 }
+
+export const SERVER = new Server();

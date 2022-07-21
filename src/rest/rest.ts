@@ -29,7 +29,7 @@ export class Rest {
 
     private app?: Application;
     private server?: Server;
-    private name = 'BITS Verwaltung API';
+    private name = 'Discord LOA Community Bot API';
 
     constructor() {
         Rest.openapiJsonPath = path.resolve(__dirname, 'openapi.json');
