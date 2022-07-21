@@ -13,7 +13,7 @@
                     "enum": ["http", "https"]
                 },
                 "environment": {
-                    "default": "api.onlinesizing.bike",
+                    "default": "api.loa.ragtag.rocks",
                     "enum": ["localhost:8081", "api.loa.ragtag.rocks"]
                 }
             }
