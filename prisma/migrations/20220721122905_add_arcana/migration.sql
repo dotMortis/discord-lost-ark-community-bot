@@ -1,0 +1,1 @@
+INSERT INTO `class` (uid, name, icon, role) VALUES (UUID(), "Arcana", "la_arcana", "DD");
