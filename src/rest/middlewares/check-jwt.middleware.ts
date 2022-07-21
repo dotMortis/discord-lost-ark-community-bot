@@ -1,6 +1,6 @@
 import { logger } from '@bits_devel/logger';
 import { NextFunction } from 'express';
-import * as passport from 'passport';
+import passport from 'passport';
 import { BotApiError } from '../../models/error/bot-api-error.model';
 import { ApiRequest } from '../../models/express-extended/api-request.model';
 import { ApiResponse } from '../../models/express-extended/api-response.model';
@@ -23,7 +23,7 @@ export const checkJwt = (req: ApiRequest, res: ApiResponse, next: NextFunction) 
                               err ? err : 'Missing payload'
                           )
                 );
-                return next();
+                return next(res.locals.error);
             }
             res.locals.userInfo.setInfo({
                 userId: payload.user.id,

@@ -34,20 +34,8 @@
     ],
     "paths": {
         "/login": {
-            "post": {
+            "get": {
                 "tags": ["auth"],
-                "parameters": [
-                    {
-                        "name": "longTime",
-                        "in": "query",
-                        "required": false,
-                        "style": "form",
-                        "explode": true,
-                        "schema": {
-                            "type": "boolean"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "jwt cookie too set",
@@ -57,6 +45,13 @@
                                 "explode": false,
                                 "schema": {
                                     "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Empty"
                                 }
                             }
                         }
@@ -77,6 +72,60 @@
                         "BasicAuth": []
                     }
                 ]
+            }
+        },
+        "/logout": {
+            "get": {
+                "tags": ["auth"],
+                "responses": {
+                    "200": {
+                        "description": "logged out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Empty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/authenticated": {
+            "get": {
+                "tags": ["auth"],
+                "responses": {
+                    "200": {
+                        "description": "is authenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Empty"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "unexpected error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/events": {

@@ -56,7 +56,7 @@ export class Locals implements ILocals {
 
     addResponseInfo(message: string, response: any) {
         this.message = message;
-        this.response = response;
+        this.response = response || {};
     }
 
     addErrorInfo(error: BotApiError) {
