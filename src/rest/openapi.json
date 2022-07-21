@@ -219,7 +219,7 @@
                 }
             }
         },
-        "/event/{eventId}": {
+        "/events/{eventId}": {
             "get": {
                 "tags": ["eventFactory"],
                 "parameters": [

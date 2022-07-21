@@ -30,7 +30,9 @@ export const ADD_MEMBER_EVENT: TMemberEventCommand = {
                 free: Number(free),
                 name,
                 supps: Number(supps),
-                type: 'CREATE_EVENT'
+                type: 'CREATE_EVENT',
+                description: null,
+                logMode: LogMode.FULL
             });
         } else {
             return 'Error:\n```' + ADD_MEMBER_EVENT.desc[0] + '```';

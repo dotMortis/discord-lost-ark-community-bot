@@ -224,7 +224,7 @@ export abstract class CommonController<T extends IT & IDeSerializable<T, IT>, IT
     getNoneResponse(message: string, locals: Locals, dataCB: () => Promise<void>): Promise<Locals> {
         return dataCB()
             .then(_ => {
-                locals.addResponseInfo(message, undefined);
+                locals.addResponseInfo(message, {});
             })
             .catch((error: Error | BotApiError) => {
                 if (error instanceof BotApiError) {

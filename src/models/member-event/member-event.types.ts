@@ -1,4 +1,4 @@
-import { Event } from '@prisma/client';
+import { Event, LogMode } from '@prisma/client';
 export type TMemberEvents = {
     CREATE_EVENT: {
         type: 'CREATE_EVENT';
@@ -8,6 +8,16 @@ export type TMemberEvents = {
         free: number;
         name: string;
         channelId: string;
+        description: null | string;
+        logMode: LogMode;
+    };
+    UPDATE_EVENT: {
+        eventId: number;
+        type: 'UPDATE_EVENT';
+        name: undefined | string;
+        description: undefined | null | string;
+        logMode: undefined | LogMode;
+        actionUserId: string;
     };
     REMOVE_EVENT: {
         type: 'REMOVE_EVENT';
@@ -17,7 +27,7 @@ export type TMemberEvents = {
     UPDATE_EVENT_DESC: {
         type: 'UPDATE_EVENT_DESC';
         eventId: number;
-        description: string;
+        description: string | null;
         actionUserId: string;
     };
     UPDATE_PARTY_DESC: {

@@ -71,16 +71,21 @@ export class MemberEventFactory extends EventEmitter {
 
     public async action<ACTION_DATA_NAME extends TMemberEventName>(
         actionData: TMemberEvents[ACTION_DATA_NAME]
-    ): Promise<void> {
+    ): Promise<Event | null> {
         this._isInitCheck();
         const currUid = v4();
         this.emit('ACTION', { data: actionData, uid: currUid });
-        return new Promise<void>((res, rej) => {
-            const cb = (uid: string, data: TMemberEvents[ACTION_DATA_NAME], error?: Error) => {
+        return new Promise<Event | null>((res, rej) => {
+            const cb = (
+                uid: string,
+                data: TMemberEvents[ACTION_DATA_NAME],
+                event: Event | null,
+                error?: Error
+            ) => {
                 if (uid === currUid) {
                     this.removeListener(actionData.type, cb);
                     if (error) rej();
-                    else res();
+                    else res(event);
                 }
             };
             this.onActionEnd(actionData.type, cb);
@@ -89,7 +94,12 @@ export class MemberEventFactory extends EventEmitter {
 
     public emitActionEnd<ACTION_DATA_NAME extends TMemberEventName>(
         action: TMemberEvents[ACTION_DATA_NAME]['type'],
-        data: { uid: string; data: TMemberEvents[ACTION_DATA_NAME]; error?: Error }
+        data: {
+            uid: string;
+            data: TMemberEvents[ACTION_DATA_NAME];
+            event: Event | null;
+            error?: Error;
+        }
     ): boolean {
         this._isInitCheck();
         return super.emit(action, data.uid, data.data, data.error);
@@ -97,7 +107,12 @@ export class MemberEventFactory extends EventEmitter {
 
     public onActionEnd<ACTION_DATA_NAME extends TMemberEventName>(
         action: TMemberEvents[ACTION_DATA_NAME]['type'],
-        cb: (uid: string, data: TMemberEvents[ACTION_DATA_NAME], error?: Error) => void
+        cb: (
+            uid: string,
+            data: TMemberEvents[ACTION_DATA_NAME],
+            event: Event | null,
+            error?: Error
+        ) => void
     ): this {
         return super.on(action, cb);
     }
@@ -247,7 +262,9 @@ export class MemberEventFactory extends EventEmitter {
         supps: number,
         free: number,
         name: string,
-        channelId: string
+        channelId: string,
+        description: string | null,
+        logMode: LogMode
     ): Promise<TActionresult> {
         const event = await prismaClient.event.create({
             data: {
@@ -257,6 +274,8 @@ export class MemberEventFactory extends EventEmitter {
                 free,
                 name,
                 channelId,
+                description,
+                logMode,
                 partys: {
                     createMany: {
                         data: [{ isSpareBench: true }, {}]
@@ -328,9 +347,38 @@ export class MemberEventFactory extends EventEmitter {
         return { event, actionLog: `<@${actionUserId}> hat das Event gelöscht` };
     }
 
+    private async _updateEventAction(
+        eventId: number,
+        description: string | null | undefined,
+        name: string | undefined,
+        logMode: LogMode | undefined,
+        actionUserId: string
+    ): Promise<TActionresult> {
+        const event = await prismaClient.event.findFirstOrThrow({
+            where: {
+                id: eventId
+            }
+        });
+        await prismaClient.event.update({
+            where: {
+                id: eventId
+            },
+            data: {
+                description,
+                name,
+                logMode
+            }
+        });
+
+        return {
+            event,
+            actionLog: `<@${actionUserId}> hat das Event aktualisiert`
+        };
+    }
+
     private async _updateEventDesc(
         eventId: number,
-        description: string,
+        description: string | null,
         actionUserId: string
     ): Promise<TActionresult> {
         const event = await prismaClient.event.findFirstOrThrow({
@@ -818,7 +866,19 @@ export class MemberEventFactory extends EventEmitter {
                                 data.supps,
                                 data.free,
                                 data.name,
-                                data.channelId
+                                data.channelId,
+                                data.description,
+                                data.logMode
+                            );
+                            break;
+                        }
+                        case 'UPDATE_EVENT': {
+                            actionResult = await this._updateEventAction(
+                                data.eventId,
+                                data.description,
+                                data.name,
+                                data.logMode,
+                                data.actionUserId
                             );
                             break;
                         }
@@ -913,11 +973,15 @@ export class MemberEventFactory extends EventEmitter {
                         default:
                             throw new Error('Not implemented');
                     }
-                    this.emitActionEnd(data.type, actionData);
+                    this.emitActionEnd(data.type, { ...actionData, event: actionResult.event });
                     if (actionResult != null) await this._updateEvent(actionResult.event.id, false);
                     await this._createLog(actionResult.actionLog, actionResult.event);
                 } catch (error: any) {
-                    this.emitActionEnd(actionData.data.type, { ...actionData, error });
+                    this.emitActionEnd(actionData.data.type, {
+                        ...actionData,
+                        error,
+                        event: null
+                    });
                     logger.error(error);
                 }
             }
