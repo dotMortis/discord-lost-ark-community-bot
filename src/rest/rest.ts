@@ -5,7 +5,7 @@ import { path as rootPath } from 'app-root-path';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Application, NextFunction, Request, Response, Router } from 'express';
-import OpenApiValidator from 'express-openapi-validator';
+import * as OpenApiValidator from 'express-openapi-validator';
 import helmet from 'helmet';
 import { createServer, Server } from 'http';
 import path from 'path';
@@ -16,7 +16,6 @@ import { ApiRequest } from '../models/express-extended/api-request.model';
 import { ApiResponse } from '../models/express-extended/api-response.model';
 import { PassportController } from './controllers/passport.controller';
 import bodyParserMiddleware from './middlewares/body-parser.middleware';
-import { checkJwt } from './middlewares/check-jwt.middleware';
 import { decodeQueryParams } from './middlewares/decode-query-params.middleware';
 import { apiErrorHandler } from './middlewares/error-handler.middleware';
 import { initExpress } from './middlewares/init-express.middleware';
@@ -26,19 +25,21 @@ import V1_ROUTER from './router/v1/v1.router';
 
 export class Rest {
     public static swaggerParser: SwaggerParser;
+    public static openapiJsonPath: string;
 
     private app?: Application;
     private server?: Server;
     private name = 'BITS Verwaltung API';
 
     constructor() {
+        Rest.openapiJsonPath = path.resolve(__dirname, 'openapi.json');
         Rest.swaggerParser = new SwaggerParser();
     }
 
     public async startServer(): Promise<Rest> {
         startRedisCache({ host: staticConfig().redis.host }, staticConfig().redis.prefix, logger);
         logger.info('Cache initialized');
-        await Rest.swaggerParser.init(path.resolve(__dirname, 'openapi.json'));
+        await Rest.swaggerParser.init(Rest.openapiJsonPath);
         logger.info('Swagger parser initialized');
         const app = this.addMiddlewares();
         logger.info('Middlewares initialized');
@@ -65,7 +66,7 @@ export class Rest {
     }
 
     private addPaths(app: express.Application): void {
-        app.use('/static', express.static(path.join(rootPath, 'assets', 'public')));
+        app.use('/static', express.static(path.resolve(rootPath, 'assets', 'public')));
         const docsRouter = Router();
         docsRouter.get('/v1', (req: Request, res: Response, next: NextFunction) => {
             try {
@@ -73,21 +74,21 @@ export class Rest {
                     { ...openapi, ...{ info: { version, title: this.name } } },
                     {
                         customSiteTitle: this.name,
-                        customfavIcon: '/static/images/favicon.png'
+                        customfavIcon: '/static/images/favicon.ico'
                     }
                 )(req, res, next);
             } catch (error: any) {
                 next(error);
             }
         });
-        app.use('/docs', initExpress, checkJwt, swaggerUi.serve, docsRouter);
+        app.use('/docs', initExpress, swaggerUi.serve, docsRouter);
         app.use('/version', (req: ApiRequest, res: ApiResponse, next: NextFunction) =>
             res.status(200).json({ version })
         );
         app.use(
             '/v1',
             OpenApiValidator.middleware({
-                apiSpec: path.join(rootPath, 'assets', 'public'),
+                apiSpec: Rest.openapiJsonPath,
                 validateResponses: {
                     coerceTypes: true
                 },
