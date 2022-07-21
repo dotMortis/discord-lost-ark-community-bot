@@ -4,3 +4,4 @@ temp/
 src/test/
 .env
 logs/
+obj.txt
