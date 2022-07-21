@@ -238,19 +238,8 @@ export class MemberEventFactory extends EventEmitter {
         supps: number,
         free: number,
         name: string,
-        channelId: string,
-        roleNames: string[]
+        channelId: string
     ): Promise<TActionresult> {
-        const roles = new Array<{ name: string; id: string }>();
-        for (const roleName of roleNames) {
-            const role = this._discord.guild.roles.cache.find(role => role.name === roleName);
-            if (role) {
-                roles.push({
-                    name: roleName,
-                    id: role.id
-                });
-            }
-        }
         const event = await prismaClient.event.create({
             data: {
                 creatorId,
@@ -820,8 +809,7 @@ export class MemberEventFactory extends EventEmitter {
                                 data.supps,
                                 data.free,
                                 data.name,
-                                data.channelId,
-                                data.roleNames
+                                data.channelId
                             );
                             break;
                         }

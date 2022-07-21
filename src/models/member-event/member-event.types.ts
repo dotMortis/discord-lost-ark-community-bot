@@ -8,7 +8,6 @@ export type TMemberEvents = {
         free: number;
         name: string;
         channelId: string;
-        roleNames: string[];
     };
     REMOVE_EVENT: {
         type: 'REMOVE_EVENT';
