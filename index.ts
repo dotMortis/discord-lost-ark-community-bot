@@ -11,5 +11,5 @@ const start = async () => {
 };
 
 start()
-    .then(_ => logger.debug('Started'))
+    .then(_ => logger.info('Started dotBot'))
     .catch(e => process.exit(0));

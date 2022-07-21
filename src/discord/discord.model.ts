@@ -228,6 +228,7 @@ export class Discord {
         memberEvents: Array<TMemberEventCommand>;
         publicCommands: Array<TPublicCommand>;
     }) {
+        logger.info(`Starting dotBot with passive mode: ${this.passiveMode}`);
         this._bot.on('debug', (msg: string) => {
             logger.debug(msg);
         });
@@ -587,19 +588,22 @@ export class Discord {
             await this.initAlertChannel(alertData);
         }
         const forever = async () => {
-            for (;;) {
-                try {
-                    logger.debug('Running alerts.');
-                    await Promise.allSettled(
-                        this._alerts.filter(a => a.channelId).map(a => a.alert.callback(a, this))
-                    );
-                    await new Promise<void>(res => {
-                        setTimeout(_ => res(), 15 * 1000);
-                    });
-                } catch (e) {
-                    logger.error(e);
+            if (!this.passiveMode)
+                for (;;) {
+                    try {
+                        logger.debug('Running alerts.');
+                        await Promise.allSettled(
+                            this._alerts
+                                .filter(a => a.channelId)
+                                .map(a => a.alert.callback(a, this))
+                        );
+                        await new Promise<void>(res => {
+                            setTimeout(_ => res(), 15 * 1000);
+                        });
+                    } catch (e) {
+                        logger.error(e);
+                    }
                 }
-            }
         };
         forever()
             .then(_ => logger.info('Started alerts'))
