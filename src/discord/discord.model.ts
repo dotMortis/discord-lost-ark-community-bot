@@ -27,6 +27,10 @@ export class Discord {
     private _bot: Client;
     private readonly _memberEventFactory: MemberEventFactory;
     private readonly _customEmojiFactory: CustomEmojiFactory;
+    private _passiveMode: boolean;
+    get passiveMode(): boolean {
+        return this._passiveMode;
+    }
 
     get memberEventFactory(): MemberEventFactory {
         return this._memberEventFactory;
@@ -151,7 +155,8 @@ export class Discord {
     //#endregion
 
     //#region constructor
-    constructor() {
+    constructor(passiveMode: boolean = false) {
+        this._passiveMode = passiveMode;
         this._customEmojiFactory = new CustomEmojiFactory(this);
         this._memberEventFactory = new MemberEventFactory(this, this._customEmojiFactory);
         this._refCleanChannelIds = new Array<string>();
@@ -286,6 +291,7 @@ export class Discord {
             this.publicCommands.set(command.command, command);
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
+            if (this.passiveMode) return;
             try {
                 const eventAlertDatas = this._eventAlerts.filter(
                     eventAlertData =>
@@ -500,6 +506,7 @@ export class Discord {
             await this.initReactionChannel(reactionData);
         }
         this._bot.on('messageReactionAdd', async (reaction, user) => {
+            if (this.passiveMode) return;
             const reactionData = this.reactions.find(
                 reactionData =>
                     reactionData.channelId === reaction.message.channelId &&
@@ -516,6 +523,7 @@ export class Discord {
             }
         });
         this._bot.on('messageReactionRemove', async (reaction, user) => {
+            if (this.passiveMode) return;
             const reactionData = this.reactions.find(
                 reactionData =>
                     reactionData.channelId === reaction.message.channelId &&
@@ -691,19 +699,20 @@ export class Discord {
         await this.initCalendarChannel();
     }
 
-    private async _routines(routines: Array<TRoutine>) {
-        for (;;) {
-            try {
-                logger.debug('Running routine.');
-                await Promise.allSettled(routines.map(r => r(this)));
-            } catch (e) {
-                logger.error(e);
-            } finally {
-                await new Promise<void>(res => {
-                    setTimeout(_ => res(), 30 * 1000);
-                });
+    private async _routines(routines: Array<TRoutine>): Promise<void> {
+        if (!this.passiveMode)
+            for (;;) {
+                try {
+                    logger.debug('Running routine.');
+                    await Promise.allSettled(routines.map(r => r(this)));
+                } catch (e) {
+                    logger.error(e);
+                } finally {
+                    await new Promise<void>(res => {
+                        setTimeout(_ => res(), 30 * 1000);
+                    });
+                }
             }
-        }
     }
 
     //#region custom commands

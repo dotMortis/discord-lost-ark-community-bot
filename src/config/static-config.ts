@@ -59,7 +59,8 @@ const _staticConfig = {
         sameSite: process.env.COOKIE_SAME_SITE === 'none' ? 'none' : 'strict',
         secure: process.env.COOKIE_SECURE === 'true'
     },
-    port: 8081
+    port: 8081,
+    passiceMode: !(process.env.PASSIVE_MODE === 'false')
 };
 
 export const staticConfig = () => _staticConfig;

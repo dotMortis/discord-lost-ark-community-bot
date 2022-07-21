@@ -1,3 +1,4 @@
+import { staticConfig } from './config/static-config';
 import { connectPrismaClient } from './db/prisma-client';
 import { ADVENTURE_ALERT } from './discord/alerts/adventure.alert';
 import { ADD_EVENT } from './discord/cal-commands/add-event';
@@ -45,7 +46,7 @@ export class Server {
     rest: Rest;
 
     constructor() {
-        this.discord = new Discord();
+        this.discord = new Discord(staticConfig().passiceMode);
         this.rest = new Rest();
     }
 

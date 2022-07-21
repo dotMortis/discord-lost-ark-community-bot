@@ -20,14 +20,20 @@ export class MemberEventFactory extends EventEmitter {
         uid: string;
         data: TMemberEvent;
     }>;
+    private _passiveMode: boolean;
     private readonly _eventIdReg: RegExp;
     private readonly _discord: Discord;
     private readonly _customEmojiFactory: CustomEmojiFactory;
+
+    get passiveMode(): boolean {
+        return this._passiveMode;
+    }
     //#endregion
 
     //#region constructor
     constructor(discord: Discord, emojiFactory: CustomEmojiFactory) {
         super();
+        this._passiveMode = discord.passiveMode;
         this._isInit = false;
         this._runAgain = this._isRunning = false;
         this._eventIdReg = new RegExp(/E-ID:( +|\t)(?<id>[0-9]+)/);
@@ -101,6 +107,7 @@ export class MemberEventFactory extends EventEmitter {
     public async init(): Promise<void> {
         await this._fetchAllMessages();
         this._discord.bot.on('messageReactionAdd', async (reaction, user) => {
+            if (this.passiveMode) return;
             let relevatnReaction = false;
             try {
                 if (user.id === this._discord.bot.user?.id) return;
@@ -188,7 +195,9 @@ export class MemberEventFactory extends EventEmitter {
             }
         });
         this._isInit = true;
-        await this.updateAllEvents();
+        if (!this.passiveMode) {
+            await this.updateAllEvents();
+        }
     }
 
     public async updateAllEvents(): Promise<void> {

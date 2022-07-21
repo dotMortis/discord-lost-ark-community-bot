@@ -14,9 +14,14 @@ export class CustomEmojiFactory {
     private readonly _emojisId: {
         [id in string]?: CustomEmoji<TCustomEmojiName>;
     };
+    private _passiveMode: boolean;
+    get passiveMode(): boolean {
+        return this._passiveMode;
+    }
 
     constructor(discord: Discord) {
         this._isInit = false;
+        this._passiveMode = discord.passiveMode;
         this._discord = discord;
         this._basePath = path.resolve(rootPath, 'assets', 'images', 'custom-emojis');
         this._emojisName = {
@@ -79,19 +84,21 @@ export class CustomEmojiFactory {
         for (const customEmojiKey of Object.keys(this._emojisName)) {
             const customEmojiName = <TCustomEmojiName>customEmojiKey;
             let emoji = emojis.find(emoji => emoji.name === customEmojiName);
-            if (!emoji) {
+            if (!emoji && !this.passiveMode) {
                 emoji = await this._discord.guild.emojis.create(
                     path.resolve(this._basePath, `${customEmojiName}.png`),
                     customEmojiName
                 );
             }
-            const customEmoji = new CustomEmoji<typeof customEmojiName>({
-                id: emoji.id,
-                emoji,
-                name: customEmojiName
-            });
-            this._emojisId[customEmoji.id] = customEmoji;
-            this._emojisName[customEmojiName] = customEmoji;
+            if (emoji) {
+                const customEmoji = new CustomEmoji<typeof customEmojiName>({
+                    id: emoji.id,
+                    emoji,
+                    name: customEmojiName
+                });
+                this._emojisId[customEmoji.id] = customEmoji;
+                this._emojisName[customEmojiName] = customEmoji;
+            }
         }
     }
 
