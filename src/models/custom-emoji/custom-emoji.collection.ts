@@ -27,4 +27,5 @@ export type TCustomEmojiName =
     | 'la_bard'
     | 'la_sorceress'
     | 'la_shadowhunter'
-    | 'la_deathblade';
+    | 'la_deathblade'
+    | 'la_arcana';
