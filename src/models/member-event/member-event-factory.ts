@@ -1,99 +1,28 @@
 import { logger } from '@bits_devel/logger';
 import { Class, Event, LogMode, Party, PartyMember, Role } from '@prisma/client';
 import { Emoji, Message, MessageEmbed, PartialMessage, TextChannel } from 'discord.js';
-import EventEmitter from 'events';
-import { v4 } from 'uuid';
 import { prismaClient } from '../../db/prisma-client';
 import { Discord } from '../../discord/discord.model';
 import { getEmbedMemberEvent } from '../../discord/embeds/member-event.embed';
 import { CustomEmojiFactory } from '../custom-emoji/custom-emoji-factory.model';
 import { TCustomEmojiName } from '../custom-emoji/custom-emoji.collection';
 import { NUMERIC_EMOTES } from '../numeric-emots.collection';
-import { TActionresult, TMemberEvent, TMemberEventName, TMemberEvents } from './member-event.types';
+import { ActionQueue, TQueueActionData } from './action-queue';
+import { TActionresult, TMemberEvents } from './member-event.types';
 
-export class MemberEventFactory extends EventEmitter {
+export class MemberEventFactory extends ActionQueue<TMemberEvents> {
     //#region member variables
-    private _isInit: boolean;
-    private _runAgain: boolean;
-    private _isRunning: boolean;
-    private _actionQueue: Array<{
-        uid: string;
-        data: TMemberEvent;
-    }>;
     private readonly _eventIdReg: RegExp;
     private readonly _discord: Discord;
     private readonly _customEmojiFactory: CustomEmojiFactory;
     //#endregion
 
     //#region constructor
-    constructor(discord: Discord, emojiFactory: CustomEmojiFactory) {
+    constructor(discord: Discord) {
         super();
-        this._isInit = false;
-        this._runAgain = this._isRunning = false;
         this._eventIdReg = new RegExp(/E-ID:( +|\t)(?<id>[0-9]+)/);
-        this._actionQueue = new Array<{
-            uid: string;
-            data: TMemberEvent;
-        }>();
         this._discord = discord;
-        this._customEmojiFactory = emojiFactory;
-        this.on('ACTION', async data => {
-            try {
-                this._actionQueue.push(data);
-                await this._updateEvents();
-            } catch (error: any) {
-                logger.error(error);
-            }
-        });
-    }
-    //#endregion
-
-    //#region events emitter
-    public on<ACTION_DATA_NAME extends TMemberEventName>(
-        eventName: 'ACTION',
-        cb: (data: { data: TMemberEvents[ACTION_DATA_NAME]; uid: string }) => void
-    ): this {
-        return super.on(eventName, cb);
-    }
-
-    public emit<ACTION_DATA_NAME extends TMemberEventName>(
-        eventName: 'ACTION',
-        data: { data: TMemberEvents[ACTION_DATA_NAME]; uid: string }
-    ): boolean {
-        return super.emit(eventName, data);
-    }
-
-    public async action<ACTION_DATA_NAME extends TMemberEventName>(
-        actionData: TMemberEvents[ACTION_DATA_NAME]
-    ): Promise<void> {
-        this._isInitCheck();
-        const currUid = v4();
-        this.emit('ACTION', { data: actionData, uid: currUid });
-        return new Promise<void>((res, rej) => {
-            const cb = (uid: string, data: TMemberEvents[ACTION_DATA_NAME], error?: Error) => {
-                if (uid === currUid) {
-                    this.removeListener(actionData.type, cb);
-                    if (error) rej();
-                    else res();
-                }
-            };
-            this.onActionEnd(actionData.type, cb);
-        });
-    }
-
-    public emitActionEnd<ACTION_DATA_NAME extends TMemberEventName>(
-        action: TMemberEvents[ACTION_DATA_NAME]['type'],
-        data: { uid: string; data: TMemberEvents[ACTION_DATA_NAME]; error?: Error }
-    ): boolean {
-        this._isInitCheck();
-        return super.emit(action, data.uid, data.data, data.error);
-    }
-
-    public onActionEnd<ACTION_DATA_NAME extends TMemberEventName>(
-        action: TMemberEvents[ACTION_DATA_NAME]['type'],
-        cb: (uid: string, data: TMemberEvents[ACTION_DATA_NAME], error?: Error) => void
-    ): this {
-        return super.on(action, cb);
+        this._customEmojiFactory = discord.customEmojiFactory;
     }
     //#endregion
 
@@ -113,13 +42,16 @@ export class MemberEventFactory extends EventEmitter {
                         if (eventId) {
                             const event = await this._getEventFromId(eventId);
                             relevatnReaction = true;
-                            await this.action<'ADD_MEMBER'>({
-                                classIcon: reaction.emoji.name,
-                                eventId: event.id,
-                                type: 'ADD_MEMBER',
-                                userId: user.id,
-                                actionUserId: user.id
-                            });
+                            await this.action<'ADD_MEMBER'>(
+                                {
+                                    classIcon: reaction.emoji.name,
+                                    eventId: event.id,
+                                    type: 'ADD_MEMBER',
+                                    userId: user.id,
+                                    actionUserId: user.id
+                                },
+                                eventId.toString()
+                            );
                         }
                     } else if (Buffer.from(reaction.emoji.name).toString('hex') === 'f09f9aab') {
                         const eventId = this._getEventIdFromMessage(reaction.message);
@@ -169,13 +101,16 @@ export class MemberEventFactory extends EventEmitter {
                     if (eventId && charNumber != null) {
                         const event = await this._getEventFromId(eventId);
                         relevatnReaction = true;
-                        await this.action<'REMOVE_MEMBER_BY_USER_ID'>({
-                            charNumber,
-                            eventId: event.id,
-                            type: 'REMOVE_MEMBER_BY_USER_ID',
-                            userId: user.id,
-                            actionUserId: user.id
-                        });
+                        await this.action<'REMOVE_MEMBER_BY_USER_ID'>(
+                            {
+                                charNumber,
+                                eventId: event.id,
+                                type: 'REMOVE_MEMBER_BY_USER_ID',
+                                userId: user.id,
+                                actionUserId: user.id
+                            },
+                            eventId.toString()
+                        );
                     }
                 }
             } catch (e) {
@@ -187,12 +122,10 @@ export class MemberEventFactory extends EventEmitter {
                     await reaction.users.remove(user.id);
             }
         });
-        this._isInit = true;
         await this.updateAllEvents();
     }
 
     public async updateAllEvents(): Promise<void> {
-        this._isInitCheck();
         const events = await prismaClient.event.findMany({});
         for (const event of events) {
             await this._updateEvent(event.id, true);
@@ -205,7 +138,6 @@ export class MemberEventFactory extends EventEmitter {
     }
 
     public async getEventMessage(event: Event): Promise<Message<boolean> | undefined> {
-        this._isInitCheck();
         const currChannel = <TextChannel>this._discord.guild.channels.cache.get(event.channelId);
         const message = currChannel?.messages.cache.get(event.messageId || '');
         await message?.thread?.fetch();
@@ -228,6 +160,122 @@ export class MemberEventFactory extends EventEmitter {
         });
         event.logMode = mode;
         await this._createLog(`<@${actionUserId}> hat den Logmodus auf [${mode}] geändert`, event);
+    }
+
+    async queueAction(actionData: TQueueActionData<TMemberEvents>): Promise<void> {
+        let actionResult: TActionresult | undefined;
+        const { uid, data } = actionData;
+        switch (data.type) {
+            case 'ADD_MEMBER': {
+                actionResult = await this._addMember(
+                    data.eventId,
+                    data.classIcon,
+                    data.userId,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'CREATE_EVENT': {
+                actionResult = await this._createEvent(
+                    data.creatorId,
+                    data.dds,
+                    data.supps,
+                    data.free,
+                    data.name,
+                    data.channelId
+                );
+                break;
+            }
+            case 'REMOVE_EVENT': {
+                actionResult = await this._removeEvent(data.eventId, data.actionUserId);
+                break;
+            }
+            case 'REMOVE_MEMBER_BY_PARTY_NUMBER': {
+                actionResult = await this._removeMemberByPartyNumber(
+                    data.eventId,
+                    data.memberNumber,
+                    data.partyNumber,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'REMOVE_MEMBER_BY_USER_ID': {
+                actionResult = await this._removeMemberByUserId(
+                    data.eventId,
+                    data.charNumber,
+                    data.userId,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'SWITCH_MEMBERS': {
+                actionResult = await this._switchMembers(
+                    data.eventId,
+                    data.memberOne,
+                    data.memberTwo,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'UPDATE_EVENT_DESC': {
+                actionResult = await this._updateEventDesc(
+                    data.eventId,
+                    data.description,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'UPDATE_PARTY_DESC': {
+                actionResult = await this._updateParytDesc(
+                    data.eventId,
+                    data.partyNumber,
+                    data.description,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'MOVE_MEMBER': {
+                actionResult = await this._moveMember(
+                    data.eventId,
+                    data.member,
+                    data.newPartyNumber,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'MOVE_MEMBER_TO_SPARE': {
+                actionResult = await this._moveMemberToSpareBench(
+                    data.eventId,
+                    data.member,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'PARTY_IS_DONE': {
+                actionResult = await this._setPartyIsDone(
+                    data.eventId,
+                    data.partyNumber,
+                    data.actionUserId
+                );
+                break;
+            }
+            case 'EVENT_IS_DONE': {
+                actionResult = await this._setEventIsDone(data.eventId, data.actionUserId);
+                break;
+            }
+            case 'UPDATE_EVENT_NAME': {
+                actionResult = await this._renameEvent(
+                    data.eventId,
+                    data.newEventName,
+                    data.actionUserId
+                );
+                break;
+            }
+            default:
+                throw new Error('Not implemented');
+        }
+        if (actionResult != null) await this._updateEvent(actionResult.event.id, false);
+        await this._createLog(actionResult.actionLog, actionResult.event);
     }
     //#endregion
 
@@ -778,145 +826,6 @@ export class MemberEventFactory extends EventEmitter {
         return { event, actionLog: `<@${actionUserId}> hat das Event umbenannt` };
     }
 
-    private async _updateEvents(): Promise<void> {
-        if (this._isRunning) {
-            this._runAgain = this._isRunning;
-            return;
-        }
-        this._isRunning = true;
-        let isRerun = false;
-        do {
-            isRerun = this._runAgain;
-            let actionData: typeof this._actionQueue[number] | undefined;
-            while ((actionData = this._actionQueue.shift())) {
-                try {
-                    let actionResult: TActionresult | undefined;
-                    const { uid, data } = actionData;
-                    switch (data.type) {
-                        case 'ADD_MEMBER': {
-                            actionResult = await this._addMember(
-                                data.eventId,
-                                data.classIcon,
-                                data.userId,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'CREATE_EVENT': {
-                            actionResult = await this._createEvent(
-                                data.creatorId,
-                                data.dds,
-                                data.supps,
-                                data.free,
-                                data.name,
-                                data.channelId
-                            );
-                            break;
-                        }
-                        case 'REMOVE_EVENT': {
-                            actionResult = await this._removeEvent(data.eventId, data.actionUserId);
-                            break;
-                        }
-                        case 'REMOVE_MEMBER_BY_PARTY_NUMBER': {
-                            actionResult = await this._removeMemberByPartyNumber(
-                                data.eventId,
-                                data.memberNumber,
-                                data.partyNumber,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'REMOVE_MEMBER_BY_USER_ID': {
-                            actionResult = await this._removeMemberByUserId(
-                                data.eventId,
-                                data.charNumber,
-                                data.userId,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'SWITCH_MEMBERS': {
-                            actionResult = await this._switchMembers(
-                                data.eventId,
-                                data.memberOne,
-                                data.memberTwo,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'UPDATE_EVENT_DESC': {
-                            actionResult = await this._updateEventDesc(
-                                data.eventId,
-                                data.description,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'UPDATE_PARTY_DESC': {
-                            actionResult = await this._updateParytDesc(
-                                data.eventId,
-                                data.partyNumber,
-                                data.description,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'MOVE_MEMBER': {
-                            actionResult = await this._moveMember(
-                                data.eventId,
-                                data.member,
-                                data.newPartyNumber,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'MOVE_MEMBER_TO_SPARE': {
-                            actionResult = await this._moveMemberToSpareBench(
-                                data.eventId,
-                                data.member,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'PARTY_IS_DONE': {
-                            actionResult = await this._setPartyIsDone(
-                                data.eventId,
-                                data.partyNumber,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'EVENT_IS_DONE': {
-                            actionResult = await this._setEventIsDone(
-                                data.eventId,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        case 'UPDATE_EVENT_NAME': {
-                            actionResult = await this._renameEvent(
-                                data.eventId,
-                                data.newEventName,
-                                data.actionUserId
-                            );
-                            break;
-                        }
-                        default:
-                            throw new Error('Not implemented');
-                    }
-                    this.emitActionEnd(data.type, actionData);
-                    if (actionResult != null) await this._updateEvent(actionResult.event.id, false);
-                    await this._createLog(actionResult.actionLog, actionResult.event);
-                } catch (error: any) {
-                    this.emitActionEnd(actionData.data.type, { ...actionData, error });
-                    logger.error(error);
-                }
-            }
-            if (isRerun) this._runAgain = isRerun = false;
-        } while (this._runAgain);
-        this._isRunning = false;
-    }
-
     private async _updateEvent(eventId: number, fetchEvent: boolean): Promise<void> {
         const event = await this._getEventFromId(eventId);
         if (!event) return;
@@ -1256,10 +1165,6 @@ export class MemberEventFactory extends EventEmitter {
                 await dcMessage?.thread?.send('LOG: ' + message);
             }
         }
-    }
-
-    private _isInitCheck(): void {
-        if (!this._isInit) throw new Error('MemberEventFactory not initialized');
     }
     //#endregion
 }

@@ -153,7 +153,7 @@ export class Discord {
     //#region constructor
     constructor() {
         this._customEmojiFactory = new CustomEmojiFactory(this);
-        this._memberEventFactory = new MemberEventFactory(this, this._customEmojiFactory);
+        this._memberEventFactory = new MemberEventFactory(this);
         this._refCleanChannelIds = new Array<string>();
         this._calData = {
             commands: new Map<string, TCalCommand>(),
