@@ -100,7 +100,7 @@ export abstract class ActionQueue<
     }
     //#endregion
 
-    public async queueAction(data: TQueueActionData<EVENT_DATA>): Promise<void> {
+    public async queueAction(data: TActionQueueData<EVENT_DATA>): Promise<void> {
         throw new Error('queueAction not implemented');
     }
 
@@ -142,7 +142,7 @@ export abstract class ActionQueue<
     }
 }
 
-export type TQueueActionData<EVENT_DATA extends { [P: string]: { type: string } }> = {
+export type TActionQueueData<EVENT_DATA extends { [P: string]: { type: string } }> = {
     uid: string;
     data: EVENT_DATA[keyof EVENT_DATA];
 };

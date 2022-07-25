@@ -7,7 +7,7 @@ import { getEmbedMemberEvent } from '../../discord/embeds/member-event.embed';
 import { CustomEmojiFactory } from '../custom-emoji/custom-emoji-factory.model';
 import { TCustomEmojiName } from '../custom-emoji/custom-emoji.collection';
 import { NUMERIC_EMOTES } from '../numeric-emots.collection';
-import { ActionQueue, TQueueActionData } from './action-queue';
+import { ActionQueue, TActionQueueData } from './action-queue';
 import { TActionresult, TMemberEvents } from './member-event.types';
 
 export class MemberEventFactory extends ActionQueue<TMemberEvents> {
@@ -162,7 +162,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
         await this._createLog(`<@${actionUserId}> hat den Logmodus auf [${mode}] geändert`, event);
     }
 
-    async queueAction(actionData: TQueueActionData<TMemberEvents>): Promise<void> {
+    async queueAction(actionData: TActionQueueData<TMemberEvents>): Promise<void> {
         let actionResult: TActionresult | undefined;
         const { uid, data } = actionData;
         switch (data.type) {
