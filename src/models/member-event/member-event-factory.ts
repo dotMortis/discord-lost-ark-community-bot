@@ -275,7 +275,8 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
             default:
                 throw new Error('Not implemented');
         }
-        if (actionResult != null) await this._updateEvent(actionResult.event.id, false);
+        if (actionResult != null)
+            await this._updateEvent(actionResult.event.id, false).catch(e => logger.error(e));
         await this._createLog(actionResult.actionLog, actionResult.event);
     }
     //#endregion
