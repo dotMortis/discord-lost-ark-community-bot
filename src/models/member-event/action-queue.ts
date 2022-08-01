@@ -84,6 +84,10 @@ export abstract class ActionQueue<
         });
     }
 
+    public isInit(): void {
+        this.__isInit = true;
+    }
+
     private __emitActionEnd<ACTION_DATA_NAME extends keyof EVENT_DATA>(
         action: EVENT_DATA[ACTION_DATA_NAME]['type'],
         data: { uid: string; data: EVENT_DATA[ACTION_DATA_NAME]; error?: Error }

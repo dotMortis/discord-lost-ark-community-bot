@@ -122,6 +122,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                     await reaction.users.remove(user.id);
             }
         });
+        this.isInit();
         await this.updateAllEvents();
     }
 
