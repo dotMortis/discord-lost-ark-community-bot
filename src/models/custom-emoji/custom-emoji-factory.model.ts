@@ -49,7 +49,8 @@ export class CustomEmojiFactory {
             la_soulfist: null,
             la_striker: null,
             la_wardancer: null,
-            la_arcana: null
+            la_arcana: null,
+            la_machinist: null
         };
         this._emojisId = {};
     }
