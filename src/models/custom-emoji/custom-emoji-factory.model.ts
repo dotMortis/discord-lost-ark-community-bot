@@ -50,7 +50,8 @@ export class CustomEmojiFactory {
             la_striker: null,
             la_wardancer: null,
             la_arcana: null,
-            la_machinist: null
+            la_machinist: null,
+            la_reaper: null
         };
         this._emojisId = {};
     }

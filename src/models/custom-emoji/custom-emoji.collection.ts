@@ -29,4 +29,5 @@ export type TCustomEmojiName =
     | 'la_shadowhunter'
     | 'la_deathblade'
     | 'la_arcana'
-    | 'la_machinist';
+    | 'la_machinist'
+    | 'la_reaper';
