@@ -9,9 +9,5 @@ export const getEmbedWelcomeReaction = (discord: Discord) => {
     embed.setColor(0x0099ff);
     embed.setTitle(title);
     embed.setDescription(description);
-    embed.addFields({
-        name: '\u200B',
-        value: `Schau dir zudem unseren <#${discord.calData.channelId}> an!`
-    });
     return embed;
 };

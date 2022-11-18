@@ -6,30 +6,12 @@ export const ASSIGN_COMMAND: TDefaultCommand = {
     minLength: 3,
     permission: 'Administrator',
     desc: [
-        ['!dot assign cal', 'Setzt den aktiven Channel für den Kalender.'],
         ['!dot assign com', 'Setzt den aktiven Channel für Bot-Commands.'],
         ['!dot assign clean_ref', 'Fügt den aktiven Channel zur Reinigungsroutine hinzu.']
     ],
     callback: async (msg: Message<boolean>, args: Array<string>, discord: Discord) => {
         const type = args[2];
-        if (type === 'cal') {
-            const key = 'CAL_CH_ID';
-            const config = await prismaClient.config.upsert({
-                where: {
-                    key
-                },
-                create: {
-                    key,
-                    value: msg.channelId
-                },
-                update: {
-                    value: msg.channelId
-                }
-            });
-            discord.calData.channelId = config.value || undefined;
-            await msg.reply('Done!');
-            await discord.initCalendarChannel();
-        } else if (type === 'com') {
+        if (type === 'com') {
             const key = 'COM_CH_ID';
             const config = await prismaClient.config.upsert({
                 where: {

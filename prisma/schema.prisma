@@ -7,26 +7,6 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-model GuildEvent {
-    id       Int        @id @default(autoincrement()) @db.UnsignedInt
-    name     String     @unique @db.VarChar(255)
-    calendar Calendar[]
-
-    @@map("guild_event")
-}
-
-model Calendar {
-    id           Int        @id @default(autoincrement()) @db.UnsignedInt
-    guildEventId Int        @map("guild_event_id") @db.UnsignedInt
-    dayOfWeek    Int        @map("day_of_week") @db.TinyInt
-    time         String     @db.Char(6)
-    event        GuildEvent @relation(fields: [guildEventId], references: [id], onDelete: Cascade)
-
-    @@unique([dayOfWeek, time])
-    @@index([guildEventId], map: "calendar_guild_event_id_fkey")
-    @@map("calendar")
-}
-
 model Config {
     key   String  @id @db.VarChar(255)
     value String? @db.LongText

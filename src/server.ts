@@ -1,11 +1,5 @@
 import { connectPrismaClient } from './db/prisma-client';
 import { ADVENTURE_ALERT } from './discord/alerts/adventure.alert';
-import { ADD_EVENT } from './discord/cal-commands/add-event';
-import { LIST_CALENDAR } from './discord/cal-commands/list-event';
-import { REMOVE_EVENT } from './discord/cal-commands/remove-event';
-import { SET_EVENT } from './discord/cal-commands/set-event';
-import { UNSET_EVENT } from './discord/cal-commands/unset-event';
-import { UPDATE_EVENT } from './discord/cal-commands/update-event';
 import { ASSIGN_COMMAND } from './discord/deault-commands/assign.command';
 import { COMMAND_COMMAND } from './discord/deault-commands/command.command';
 import {
@@ -38,7 +32,6 @@ import { WELCOME_REACTION } from './discord/reactions/welcome.reaction';
 import { CLEAN_UP_ROUTINE } from './discord/routines/clean-up.routine';
 import { COMMANDS_CLEAN_UP_ROUTINE } from './discord/routines/commands-clean-up.routine';
 import { MEMBER_EVENT_CLEAN_UP_ROUTINE } from './discord/routines/member-event-log-clean-up.routine';
-import { UPDATE_CALENDAR_ROUTINE } from './discord/routines/update-calendar.routine';
 export class Server {
     discord: Discord;
 
@@ -55,20 +48,7 @@ export class Server {
                 DEL_CUSTOM_COMMAND,
                 ADD_CUSTOM_COMMAND
             ],
-            calCommands: [
-                LIST_CALENDAR,
-                ADD_EVENT,
-                REMOVE_EVENT,
-                SET_EVENT,
-                UNSET_EVENT,
-                UPDATE_EVENT
-            ],
-            routines: [
-                UPDATE_CALENDAR_ROUTINE,
-                CLEAN_UP_ROUTINE,
-                COMMANDS_CLEAN_UP_ROUTINE,
-                MEMBER_EVENT_CLEAN_UP_ROUTINE
-            ],
+            routines: [CLEAN_UP_ROUTINE, COMMANDS_CLEAN_UP_ROUTINE, MEMBER_EVENT_CLEAN_UP_ROUTINE],
             reactions: [WELCOME_REACTION, ALERT_REACTION, ITEMLEVEL_REACTION],
             alerts: [ADVENTURE_ALERT],
             eventAlerts: [SERIA_EVENT_ALERT, GIFT_EVENT_ALERT],
