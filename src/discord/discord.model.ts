@@ -1,10 +1,10 @@
 import { logger } from '@bits_devel/logger';
+import { EmbedBuilder } from '@discordjs/builders';
 import {
     Client,
     Guild,
     GuildMember,
     Message,
-    MessageEmbed,
     MessageReaction,
     PartialMessageReaction,
     PartialUser,
@@ -190,11 +190,11 @@ export class Discord {
         this._publicCommands = new Map<string, TPublicCommand>();
         this._bot = new Client({
             intents: [
-                'GUILDS',
-                'GUILD_MESSAGES',
-                'GUILD_MESSAGE_REACTIONS',
-                'DIRECT_MESSAGE_REACTIONS',
-                'GUILD_MEMBERS'
+                'Guilds',
+                'GuildMessages',
+                'GuildMessageReactions',
+                'DirectMessageReactions',
+                'GuildMembers'
             ]
         });
     }
@@ -457,7 +457,7 @@ export class Discord {
                     typeof text === 'string'
                         ? text
                         : {
-                              content: null,
+                              body: null,
                               embeds: [text]
                           }
                 );
@@ -818,7 +818,7 @@ export type TReaction = {
     ident: string;
     desc: [string, string][];
     icons: string[];
-    text: MessageEmbed | string | ((discord: Discord) => string | MessageEmbed);
+    text: EmbedBuilder | string | ((discord: Discord) => string | EmbedBuilder);
     roles: string[];
     addCallback: (
         reaction: MessageReaction | PartialMessageReaction,

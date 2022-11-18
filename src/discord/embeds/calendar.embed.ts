@@ -1,5 +1,5 @@
+import { EmbedBuilder } from '@discordjs/builders';
 import { Calendar, GuildEvent } from '@prisma/client';
-import { MessageEmbed } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
 
 export const getEmbedCalendar = async () => {
@@ -72,18 +72,18 @@ const _computeTimeIndicator = (
 };
 
 const _computeEmbed = (mapping: Array<{ day: string; items: string }>, dayOfWeek: number) => {
-    const embed = new MessageEmbed().setColor('#0099ff').setTitle('Gilden Aktivitäten');
+    const embed = new EmbedBuilder().setColor(0x0099ff).setTitle('Gilden Aktivitäten');
     for (let z = 1; z <= mapping.length; z++) {
         const map = mapping[z - 1];
 
-        if (z === 6) embed.addField('\u2064', '\u2064', true);
-        embed.addField(
-            (dayOfWeek === (z === 7 ? 0 : z) ? '\u{1f7e2} ' : '') + map.day,
-            map.items + '\u200b',
-            true
-        );
+        if (z === 6) embed.addFields({ name: '\u2064', value: '\u2064', inline: true });
+        embed.addFields({
+            name: (dayOfWeek === (z === 7 ? 0 : z) ? '\u{1f7e2} ' : '') + map.day,
+            value: map.items + '\u200b',
+            inline: true
+        });
     }
-    embed.addField('\u2064', '\u2064', true);
+    embed.addFields({ name: '\u2064', value: '\u2064', inline: true });
     embed.setTimestamp().setFooter({ text: 'Aktivitätten wiederholen sich wöchentlich' });
     return embed;
 };

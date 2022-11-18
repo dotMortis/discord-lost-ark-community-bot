@@ -1,5 +1,5 @@
+import { EmbedBuilder } from '@discordjs/builders';
 import { Class, Event, Party, PartyMember } from '@prisma/client';
-import { MessageEmbed } from 'discord.js';
 import { MemberEventFactory } from '../../models/member-event/member-event-factory';
 
 export const getEmbedMemberEvent = async (
@@ -23,8 +23,8 @@ export const getEmbedMemberEvent = async (
     }`;
     const id = `||E-ID:\t${event.id}||`;
 
-    const embed = new MessageEmbed();
-    embed.setColor('#0099ff');
+    const embed = new EmbedBuilder();
+    embed.setColor(0x0099ff);
     embed.setTitle(title);
     embed.setDescription(description + '\n' + id);
 
@@ -49,24 +49,25 @@ export const getEmbedMemberEvent = async (
 
             if (memberIndex % maxColumnSize === 0 || memberIndex === party.partyMembers.length) {
                 if (columnCount === 1) {
-                    embed.addField(
-                        groupTitle +
+                    embed.addFields({
+                        name:
+                            groupTitle +
                             `\t${party.description ? '(*' + party.description + '*)' : ''}`,
-                        memberValue,
-                        true
-                    );
+                        value: memberValue,
+                        inline: true
+                    });
                     memberValue = '';
                 } else {
-                    embed.addField('\u200B', memberValue, true);
+                    embed.addFields({ name: '\u200B', value: memberValue, inline: true });
                     if (columnCount % 2 === 0 && party.partyMembers.length > memberIndex) {
-                        embed.addField('\u200B', '\u200B');
+                        embed.addFields({ name: '\u200B', value: '\u200B' });
                     }
                     memberValue = '';
                 }
                 columnCount++;
             }
         }
-        embed.addField('\u200B', '\u200B');
+        embed.addFields({ name: '\u200B', value: '\u200B' });
     }
     let memberValue = '';
     let columnCount = 1;
@@ -80,12 +81,12 @@ export const getEmbedMemberEvent = async (
 
         if (memberIndex % maxColumnSize === 0 || memberIndex === spareParty.partyMembers.length) {
             if (columnCount === 1) {
-                embed.addField(groupTitle, memberValue, true);
+                embed.addFields({ name: groupTitle, value: memberValue, inline: true });
                 memberValue = '';
             } else {
-                embed.addField('\u200B', memberValue, true);
+                embed.addFields({ name: '\u200B', value: memberValue, inline: true });
                 if (columnCount % 2 === 0 && spareParty.partyMembers.length > memberIndex) {
-                    embed.addField('\u200B', '\u200B');
+                    embed.addFields({ name: '\u200B', value: '\u200B' });
                 }
                 memberValue = '';
             }

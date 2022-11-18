@@ -1,5 +1,5 @@
 import { logger } from '@bits_devel/logger';
-import { Message, MessageAttachment } from 'discord.js';
+import { AttachmentBuilder, Message } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
 
 import { LogMode } from '@prisma/client';
@@ -401,10 +401,9 @@ export const LOGS_EVENT: TMemberEventCommand = {
 
             await msg.reply({
                 files: [
-                    new MessageAttachment(
-                        Buffer.from(message),
-                        new Date().toISOString() + `_${eventId}.txt`
-                    )
+                    new AttachmentBuilder(Buffer.from(message), {
+                        name: new Date().toISOString() + `_${eventId}.txt`
+                    })
                 ]
             });
         } else {

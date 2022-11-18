@@ -1,6 +1,7 @@
 import { logger } from '@bits_devel/logger';
+import { EmbedBuilder } from '@discordjs/builders';
 import { Class, Event, LogMode, Party, PartyMember, Role } from '@prisma/client';
-import { Emoji, Message, MessageEmbed, PartialMessage, TextChannel } from 'discord.js';
+import { Emoji, Message, PartialMessage, TextChannel, ThreadAutoArchiveDuration } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
 import { Discord } from '../../discord/discord.model';
 import { getEmbedMemberEvent } from '../../discord/embeds/member-event.embed';
@@ -864,7 +865,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
             })[];
         },
         channel: TextChannel,
-        embed: MessageEmbed
+        embed: EmbedBuilder
     ): Promise<void> {
         const newMessage = await channel.send({ embeds: [embed] });
         await prismaClient.event.update({
@@ -877,7 +878,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
         });
         const thread = await newMessage.startThread({
             name: event.name,
-            autoArchiveDuration: 'MAX'
+            autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek
         });
         const newThreadMessage = await thread.send(`E-ID:\t${event.id}`);
         await this._setReactions(newMessage, 'classes');

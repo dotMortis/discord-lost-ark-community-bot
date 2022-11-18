@@ -4,7 +4,7 @@ import { Discord, TDefaultCommand } from '../discord.model';
 export const ASSIGN_COMMAND: TDefaultCommand = {
     command: 'assign',
     minLength: 3,
-    permission: 'ADMINISTRATOR',
+    permission: 'Administrator',
     desc: [
         ['!dot assign cal', 'Setzt den aktiven Channel für den Kalender.'],
         ['!dot assign com', 'Setzt den aktiven Channel für Bot-Commands.'],
