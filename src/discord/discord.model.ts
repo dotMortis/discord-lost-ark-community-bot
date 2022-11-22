@@ -312,7 +312,6 @@ export class Discord {
             this.publicCommands.set(command.command, command);
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
-            console.log(msg.content);
             try {
                 const eventAlertDatas = this._eventAlerts.filter(
                     eventAlertData =>
