@@ -20,16 +20,9 @@ export const getEmbedItemLevelReaction = (discord: Discord) => {
         },
         {
             name: '\u200B',
-            value:
-                `${discord.customEmojiFactory
-                    .fromName('loa_argos')
-                    ?.toIconString()}\tArgos P1 | 1370+` +
-                `\n${discord.customEmojiFactory
-                    .fromName('loa_argosp2')
-                    ?.toIconString()}\tArgos P2 | 1385+` +
-                `\n${discord.customEmojiFactory
-                    .fromName('loa_argosp3')
-                    ?.toIconString()}\tArgos P3 | 1400+`,
+            value: `${discord.customEmojiFactory
+                .fromName('loa_argos')
+                ?.toIconString()}\tArgos | 1370+`,
             inline: true
         },
         {
