@@ -200,7 +200,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                     userId: i.user.id,
                                     actionUserId: i.user.id
                                 },
-                                eventIdStr.toString()
+                                eventIdStr
                             );
                         }
                         await i.update({ content: 'Done!', components: [] });
