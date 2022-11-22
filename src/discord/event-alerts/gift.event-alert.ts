@@ -1,6 +1,7 @@
 import { logger } from '@bits_devel/logger';
 import { Message, TextChannel } from 'discord.js';
-import { Discord, TEventAlert } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TEventAlert } from '../event.types';
 
 export const GIFT_EVENT_ALERT: TEventAlert = {
     identEvent: 'GIFT_E',

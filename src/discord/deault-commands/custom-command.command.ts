@@ -1,5 +1,6 @@
 import { Message } from 'discord.js';
-import { Discord, TDefaultCommand } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TDefaultCommand } from '../event.types';
 
 export const ADD_CUSTOM_COMMAND: TDefaultCommand = {
     command: 'custom_add',

@@ -1,6 +1,7 @@
 import { logger } from '@bits_devel/logger';
 import { TextChannel } from 'discord.js';
-import { Discord, TRoutine } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TRoutine } from '../event.types';
 
 export const CLEAN_UP_ROUTINE: TRoutine = async (discord: Discord) => {
     for (const id of discord.refCleanChannelIds) {

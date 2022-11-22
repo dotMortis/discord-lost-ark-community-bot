@@ -1,5 +1,6 @@
 import { TextChannel } from 'discord.js';
-import { Discord, TRoutine } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TRoutine } from '../event.types';
 
 export const COMMANDS_CLEAN_UP_ROUTINE: TRoutine = async (discord: Discord) => {
     const channel = <TextChannel>discord.guild.channels.cache.get(discord.commandsChannelId || '');

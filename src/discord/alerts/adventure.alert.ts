@@ -1,6 +1,7 @@
 import { TextChannel } from 'discord.js';
 import { GetConfig, SetConfig } from '../../models/config.model';
-import { Discord, TAlert } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TAlert } from '../event.types';
 
 const timeMapping = new Map<number, number[]>([
     [1, [18, 20, 22]],

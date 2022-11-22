@@ -1,24 +1,31 @@
 import { logger } from '@bits_devel/logger';
 import {
     Client,
+    Events,
     Guild,
     GuildMember,
+    Interaction,
     Message,
-    MessageEmbed,
-    MessageReaction,
-    PartialMessageReaction,
-    PartialUser,
-    PermissionResolvable,
-    TextChannel,
-    User
+    SlashCommandBuilder,
+    TextChannel
 } from 'discord.js';
 import { staticConfig } from '../config/static-config';
 import { prismaClient } from '../db/prisma-client';
 import { GetConfig, SetConfig } from '../models/config.model';
 import { CustomEmojiFactory } from '../models/custom-emoji/custom-emoji-factory.model';
 import { MemberEventFactory } from '../models/member-event/member-event-factory';
+import { registerCommands } from './commands-registration';
 import { COMMAND_COMMAND } from './deault-commands/command.command';
-import { getEmbedCalendar } from './embeds/calendar.embed';
+import {
+    SlashCommand,
+    SlashSubCommand,
+    TAlert,
+    TDefaultCommand,
+    TEventAlert,
+    TPublicCommand,
+    TReaction,
+    TRoutine
+} from './event.types';
 
 export class Discord {
     //#region Properties
@@ -37,26 +44,11 @@ export class Discord {
 
     get commandsDesc(): [string, string][] {
         const commands = new Array<[string, string]>();
-        commands.push(
-            ...Array.from(this.calData.commands.values())
-                .map(command => command.desc)
-                .flat()
-        );
         commands.push(...this.reactions.map(r => r.reaction.desc).flat());
         commands.push(...this.alerts.map(r => r.alert.desc).flat());
         commands.push(...this.eventAlerts.map(r => r.eventAlert.desc).flat());
         commands.push(
             ...Array.from(this._defaultCommands.values())
-                .map(command => command.desc)
-                .flat()
-        );
-        return commands;
-    }
-
-    get memberEventCommandsDesc(): [string, string][] {
-        const commands = new Array<[string, string]>();
-        commands.push(
-            ...Array.from(this.memberEvents.values())
                 .map(command => command.desc)
                 .flat()
         );
@@ -72,17 +64,6 @@ export class Discord {
         return guild;
     }
 
-    private _calData: {
-        role: '_LAB_CAL';
-        commands: Map<string, TCalCommand>;
-        channelId: string | undefined;
-        roleId: string;
-        messageId: string | undefined;
-    };
-    get calData() {
-        return this._calData;
-    }
-
     private _defaultCommands: Map<string, TDefaultCommand>;
     private _publicCommands: Map<string, TPublicCommand>;
     get publicCommands() {
@@ -90,6 +71,27 @@ export class Discord {
             get: (key: string) => this._publicCommands.get(key.toLocaleLowerCase()),
             set: (key: string, value: TPublicCommand) => this._publicCommands.set(key, value),
             map: this._publicCommands
+        };
+    }
+
+    private _slashCommands: Map<
+        string,
+        {
+            command: SlashCommandBuilder;
+            commandOpts: SlashCommand;
+            subs: Map<string, SlashSubCommand>;
+        }
+    >;
+    get slashCommands() {
+        return {
+            get: (event: string, subEvent?: string) => {
+                if (!subEvent) {
+                    return this._slashCommands.get(event)?.commandOpts;
+                } else {
+                    return this._slashCommands.get(event)?.subs.get(subEvent);
+                }
+            },
+            Map: this._slashCommands
         };
     }
 
@@ -144,8 +146,8 @@ export class Discord {
         return this._refCleanChannelIds;
     }
 
-    private _memberEvents: Map<string, TMemberEventCommand>;
-    get memberEvents(): Map<string, TMemberEventCommand> {
+    private _memberEvents: Map<string, SlashCommand>;
+    get memberEvents(): Map<string, SlashCommand> {
         return this._memberEvents;
     }
     //#endregion
@@ -155,13 +157,6 @@ export class Discord {
         this._customEmojiFactory = new CustomEmojiFactory(this);
         this._memberEventFactory = new MemberEventFactory(this);
         this._refCleanChannelIds = new Array<string>();
-        this._calData = {
-            commands: new Map<string, TCalCommand>(),
-            channelId: '',
-            role: '_LAB_CAL',
-            roleId: '',
-            messageId: ''
-        };
         this._reactions = new Array<{
             channelId: string;
             messageId: string;
@@ -185,16 +180,26 @@ export class Discord {
             };
             eventAlert: TEventAlert;
         }>();
-        this._memberEvents = new Map<string, TMemberEventCommand>();
+        this._memberEvents = new Map<string, SlashCommand>();
         this._defaultCommands = new Map<string, TDefaultCommand>();
         this._publicCommands = new Map<string, TPublicCommand>();
+        this._slashCommands = new Map<
+            string,
+            {
+                command: SlashCommandBuilder;
+                commandOpts: SlashCommand;
+                subs: Map<string, SlashSubCommand>;
+            }
+        >();
         this._bot = new Client({
             intents: [
-                'GUILDS',
-                'GUILD_MESSAGES',
-                'GUILD_MESSAGE_REACTIONS',
-                'DIRECT_MESSAGE_REACTIONS',
-                'GUILD_MEMBERS'
+                'Guilds',
+                'GuildMessages',
+                'GuildMessageReactions',
+                'DirectMessageReactions',
+                'MessageContent',
+                'GuildMembers',
+                'GuildEmojisAndStickers'
             ]
         });
     }
@@ -215,12 +220,11 @@ export class Discord {
 
     async init(middlewares: {
         defaultCommands: Array<TDefaultCommand>;
-        calCommands: Array<TCalCommand>;
         routines: Array<TRoutine>;
         reactions: Array<TReaction>;
         alerts: Array<TAlert>;
         eventAlerts: Array<TEventAlert>;
-        memberEvents: Array<TMemberEventCommand>;
+        slashCommands: SlashCommand[];
         publicCommands: Array<TPublicCommand>;
     }) {
         this._bot.on('debug', (msg: string) => {
@@ -231,61 +235,84 @@ export class Discord {
                 logger.debug('Connected');
                 logger.debug('Logged in as: ');
                 logger.debug(this._bot.user?.tag + ' - (' + this._bot.user?.id + ')');
+
                 res();
             });
         });
         const {
             defaultCommands,
-            calCommands,
             routines,
             reactions,
             alerts,
             eventAlerts,
-            memberEvents,
+            slashCommands,
             publicCommands
         } = middlewares;
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
         await this._customEmojiFactory.init();
-        this._initCommands(defaultCommands, calCommands, memberEvents, publicCommands);
+        await this._initSlashCommands(slashCommands);
+        this._initOldCommands(defaultCommands, publicCommands);
         await this._initChannels();
         await this._initReactions(reactions);
         await this._initAlerts(alerts);
         await this._initEventAlerts(eventAlerts);
-        await this._initDefaultRole();
         await this._memberEventFactory.init();
         this._routines(routines).catch(e => logger.error(e));
     }
 
-    public async updateCalendar(): Promise<void> {
-        if (this._calData.channelId == null || this._calData.messageId == null) return;
-        const channel = <TextChannel>this.guild.channels.cache.get(this._calData.channelId);
-        if (channel) {
-            const message = channel.messages.cache.get(this._calData.messageId);
-            if (message) await message.edit({ embeds: [await getEmbedCalendar()] });
+    private async _initSlashCommands(slashCommands: Array<SlashCommand>) {
+        for (const commandOpts of slashCommands) {
+            const mapInfo = {
+                command: new SlashCommandBuilder()
+                    .setName(commandOpts.name)
+                    .setDescription(commandOpts.description),
+                commandOpts,
+                subs: new Map<string, SlashSubCommand>()
+            };
+            this._slashCommands.set(mapInfo.command.name, mapInfo);
+            for (const subCommandName of Object.keys(commandOpts.subs || [])) {
+                const subCommandOpts = commandOpts.subs[subCommandName];
+                mapInfo.command.addSubcommand(b => subCommandOpts.data(b));
+                mapInfo.subs.set(subCommandName, subCommandOpts);
+            }
         }
+        this._bot.on(Events.InteractionCreate, async (i: Interaction) => {
+            if (i.isChatInputCommand()) {
+                const command = this.slashCommands.get(i.commandName, i.options.getSubcommand());
+                try {
+                    if (command != null && command.cb != null) {
+                        const result = await command.cb(i, this);
+                        if (result !== false) {
+                            await i.reply({ ephemeral: true, content: result || 'Done!' });
+                        }
+                    } else {
+                        throw Error('Event not found!');
+                    }
+                } catch (e: any) {
+                    await i.reply({ content: e?.message || 'UNKOWN Error', ephemeral: true });
+                }
+            }
+        });
+        await registerCommands(
+            this,
+            Array.from(this._slashCommands.values()).map(sc => sc.command)
+        );
     }
 
-    private _initCommands(
+    private _initOldCommands(
         defaultCommands: Array<TDefaultCommand>,
-        calCommands: Array<TCalCommand>,
-        memberEventCommands: Array<TMemberEventCommand>,
         publicCommands: Array<TPublicCommand>
     ): void {
         for (const command of defaultCommands) {
             this._defaultCommands.set(command.command, command);
         }
-        for (const command of calCommands) {
-            this._calData.commands.set(command.command, command);
-        }
-        for (const command of memberEventCommands) {
-            this._memberEvents.set(command.command, command);
-        }
         for (const command of publicCommands) {
             this.publicCommands.set(command.command, command);
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
+            console.log(msg.content);
             try {
                 const eventAlertDatas = this._eventAlerts.filter(
                     eventAlertData =>
@@ -316,24 +343,6 @@ export class Discord {
                     msg.author.id === this._bot.user?.id
                 ) {
                     return;
-                } else if (msg.content.trimStart().startsWith('!event')) {
-                    msg.content = msg.content.replace(/\ \ +/g, ' ').trim();
-                    const args = msg.content.split(' ');
-                    const command = this.memberEvents.get(args[1]);
-                    if (command) {
-                        const result = await command.callback(msg, args, this);
-                        if (typeof result === 'string') {
-                            await msg.reply(result);
-                        } else {
-                            await msg.delete();
-                        }
-                    } else {
-                        const commands = this.memberEventCommandsDesc;
-                        let msgContent = '';
-                        for (const command of commands)
-                            msgContent += command[1] + ':\n```' + command[0] + '```';
-                        await msg.author.send(msgContent);
-                    }
                 } else if (!msg.content.trimStart().startsWith(this._prefix)) {
                     const args = msg.content.split(' ');
                     let [command] = args;
@@ -371,30 +380,19 @@ export class Discord {
                         await COMMAND_COMMAND.callback(msg, args, this);
                         return;
                     }
+
+                    const command = this._defaultCommands.get(args[1]);
                     if (
-                        msg.channelId === this.commandsChannelId &&
-                        args.length > 2 &&
-                        args[1] === 'cal'
+                        command &&
+                        msg.member &&
+                        this._hasPermissions(msg.member, command) &&
+                        args.length >= command.minLength &&
+                        command.command === args[1]
                     ) {
-                        if (!this._calData.channelId) return;
-                        const command = this._calData.commands.get(args[2]);
-                        if (command) {
-                            await command.callback(msg, args, this);
-                        } else await msg.delete();
+                        await command.callback(msg, args, this);
                     } else {
-                        const command = this._defaultCommands.get(args[1]);
-                        if (
-                            command &&
-                            msg.member &&
-                            this._hasPermissions(msg.member, command) &&
-                            args.length >= command.minLength &&
-                            command.command === args[1]
-                        ) {
-                            await command.callback(msg, args, this);
-                        } else {
-                            await COMMAND_COMMAND.callback(msg, args, this);
-                            await msg.delete();
-                        }
+                        await COMMAND_COMMAND.callback(msg, args, this);
+                        await msg.delete();
                     }
                 }
             } catch (e: any) {
@@ -402,27 +400,6 @@ export class Discord {
                 logger.error(e);
             }
         });
-    }
-
-    public async initCalendarChannel(): Promise<void> {
-        this._calData.channelId = await GetConfig('CAL_CH_ID');
-        this._calData.messageId = await GetConfig('CAL_MSG_ID');
-        if (this._calData.channelId) {
-            const ch = <TextChannel>this._bot.channels.cache.get(this._calData.channelId);
-            const createMsg = async () => {
-                const embed = await getEmbedCalendar();
-                const newMsg = await ch.send({ embeds: [embed] });
-                await SetConfig('CAL_MSG_ID', newMsg.id);
-                this._calData.messageId = newMsg.id;
-                await newMsg.fetch(true);
-            };
-            if (this._calData.messageId) {
-                await ch.messages.fetch();
-                const msg = ch.messages.cache.get(this._calData.messageId);
-                if (!msg) await createMsg();
-                else await this.updateCalendar();
-            } else await createMsg();
-        }
     }
 
     private _hasPermissions(member: GuildMember, command: TDefaultCommand): boolean {
@@ -457,7 +434,7 @@ export class Discord {
                     typeof text === 'string'
                         ? text
                         : {
-                              content: null,
+                              body: null,
                               embeds: [text]
                           }
                 );
@@ -674,21 +651,9 @@ export class Discord {
     }
     //#endregion
 
-    private async _initDefaultRole(): Promise<void> {
-        const g = this.guild;
-        const labCalRole = g.roles.cache.find(r => r.name === this._calData.role);
-        if (labCalRole) {
-            this._calData.roleId = labCalRole.id;
-        } else {
-            const newRole = await g.roles.create({ name: this._calData.role });
-            this._calData.roleId = newRole.id;
-        }
-    }
-
     private async _initChannels(): Promise<void> {
         this.commandsChannelId = await GetConfig('COM_CH_ID');
         this.refCleanChannelIds = (await GetConfig('REF_CLEAN_CHS'))?.split(',') || [];
-        await this.initCalendarChannel();
     }
 
     private async _routines(routines: Array<TRoutine>) {
@@ -776,112 +741,3 @@ export class Discord {
 
     //#endregion
 }
-
-export type TCalCommand = {
-    desc: [string, string][];
-    command: string;
-    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
-};
-
-export type TMemberEventCommand = {
-    desc: [string, string][];
-    command: string;
-    callback: (
-        msg: Message<boolean>,
-        args: Array<string>,
-        discord: Discord
-    ) => Promise<void | string>;
-};
-
-export type TDefaultCommand = {
-    command: string;
-    minLength: number;
-    permission: PermissionResolvable | null;
-    desc: [string, string][];
-    callback: (msg: Message<boolean>, args: Array<string>, discord: Discord) => Promise<void>;
-};
-
-export type TPublicCommand = {
-    command: string;
-    minLength: number;
-    desc: [string, string][];
-    callback: (
-        msg: Message<boolean>,
-        args: Array<string>,
-        discord: Discord
-    ) => Promise<string | void>;
-};
-
-export type TRoutine = (discord: Discord) => Promise<void>;
-
-export type TReaction = {
-    ident: string;
-    desc: [string, string][];
-    icons: string[];
-    text: MessageEmbed | string | ((discord: Discord) => string | MessageEmbed);
-    roles: string[];
-    addCallback: (
-        reaction: MessageReaction | PartialMessageReaction,
-        reactionHex: string,
-        reactionData: {
-            channelId: string | undefined;
-            messageId: string | undefined;
-            roles: Map<string, string>;
-            reaction: TReaction;
-        },
-        user: User | PartialUser,
-        discord: Discord
-    ) => Promise<void>;
-    removeCallback: (
-        reaction: MessageReaction | PartialMessageReaction,
-        reactionHex: string,
-        reactionData: {
-            channelId: string | undefined;
-            messageId: string | undefined;
-            roles: Map<string, string>;
-            reaction: TReaction;
-        },
-        user: User | PartialUser,
-        discord: Discord
-    ) => Promise<void>;
-};
-
-export type TAlert = {
-    ident: string;
-    icon: string;
-    desc: [string, string][];
-    role: string;
-    callback: (
-        alertData: {
-            channelId: string | undefined;
-            role: {
-                name: string;
-                id: string;
-            };
-            alert: TAlert;
-        },
-        discord: Discord
-    ) => Promise<void>;
-};
-
-export type TEventAlert = {
-    identEvent: string;
-    identAlert: string;
-    desc: [string, string][];
-    icon: string;
-    role: string;
-    callback: (
-        message: Message<boolean>,
-        eventAlertData: {
-            channelAlertId: string | undefined;
-            channelEventId: string | undefined;
-            role: {
-                name: string;
-                id: string;
-            };
-            eventAlert: TEventAlert;
-        },
-        discord: Discord,
-        alertChannel: TextChannel
-    ) => Promise<void>;
-};

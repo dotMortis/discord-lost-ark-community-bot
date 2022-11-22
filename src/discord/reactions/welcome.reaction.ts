@@ -1,12 +1,13 @@
 import { MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
-import { Discord, TReaction } from '../discord.model';
+import { Discord } from '../discord.model';
 import { getEmbedWelcomeReaction } from '../embeds/welcome.embed';
+import { TReaction } from '../event.types';
 
 export const WELCOME_REACTION: TReaction = {
-    icons: ['f09fa496'],
+    icons: ['f09fa496', 'f09f9494'],
     ident: 'WEL',
     desc: [['!dot assign WEL', 'Setzt den aktiven Channel für die Willkommensnachricht']],
-    roles: ['_W'],
+    roles: ['Member', 'MemberPing'],
     text: getEmbedWelcomeReaction,
     addCallback: async function (
         reaction: MessageReaction | PartialMessageReaction,
@@ -15,11 +16,13 @@ export const WELCOME_REACTION: TReaction = {
         user: User | PartialUser,
         discord: Discord
     ): Promise<void> {
-        if (this.icons[0] !== reactionHex) {
+        console.log(reactionHex);
+        const index = this.icons.indexOf(reactionHex);
+        if (index === -1) {
             await reaction.remove();
         } else {
             const member = discord.guild.members.cache.get(user.id);
-            const role = reactionData.roles.get(this.roles[0]);
+            const role = reactionData.roles.get(this.roles[index]);
             if (role && member) await member.roles.add(role);
         }
     },
@@ -30,9 +33,13 @@ export const WELCOME_REACTION: TReaction = {
         user: User | PartialUser,
         discord: Discord
     ): Promise<void> {
-        if (this.icons[0] === reactionHex) {
+        console.log(reactionHex);
+        const index = this.icons.indexOf(reactionHex);
+        if (index === -1) {
+            await reaction.remove();
+        } else {
             const member = discord.guild.members.cache.get(user.id);
-            const role = reactionData.roles.get(this.roles[0]);
+            const role = reactionData.roles.get(this.roles[index]);
             if (role && member) await member.roles.remove(role);
         }
     }

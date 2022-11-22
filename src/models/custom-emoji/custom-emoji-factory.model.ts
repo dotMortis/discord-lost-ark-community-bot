@@ -82,10 +82,10 @@ export class CustomEmojiFactory {
             const customEmojiName = <TCustomEmojiName>customEmojiKey;
             let emoji = emojis.find(emoji => emoji.name === customEmojiName);
             if (!emoji) {
-                emoji = await this._discord.guild.emojis.create(
-                    path.resolve(this._basePath, `${customEmojiName}.png`),
-                    customEmojiName
-                );
+                emoji = await this._discord.guild.emojis.create({
+                    attachment: path.resolve(this._basePath, `${customEmojiName}.png`),
+                    name: customEmojiName
+                });
             }
             const customEmoji = new CustomEmoji<typeof customEmojiName>({
                 id: emoji.id,
