@@ -16,7 +16,6 @@ export const WELCOME_REACTION: TReaction = {
         user: User | PartialUser,
         discord: Discord
     ): Promise<void> {
-        console.log(reactionHex);
         const index = this.icons.indexOf(reactionHex);
         if (index === -1) {
             await reaction.remove();
@@ -33,7 +32,6 @@ export const WELCOME_REACTION: TReaction = {
         user: User | PartialUser,
         discord: Discord
     ): Promise<void> {
-        console.log(reactionHex);
         const index = this.icons.indexOf(reactionHex);
         if (index === -1) {
             await reaction.remove();

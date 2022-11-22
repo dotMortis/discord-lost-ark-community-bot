@@ -41,37 +41,44 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
     //#region public func
     public async init(): Promise<void> {
         await this._fetchAllMessages();
-        this._discord.bot.on('messageReactionAdd', async (reaction, user) => {
-            let relevatnReaction = false;
-            try {
-                if (user.id === this._discord.bot.user?.id) return;
-                if (reaction.message.guildId && reaction.emoji.name) {
-                    const laClass = await this._getClassFromIcon(reaction.emoji.name).catch(
-                        _ => null
-                    );
-                    if (laClass != null) {
-                        const eventId = this._getEventIdFromMessage(reaction.message);
-                        if (eventId) {
-                            const event = await this._getEventFromId(eventId);
-                            relevatnReaction = true;
-                            await this.action<'ADD_MEMBER'>(
-                                {
-                                    classIcon: reaction.emoji.name,
-                                    eventId: event.id,
-                                    type: 'ADD_MEMBER',
-                                    userId: user.id,
-                                    actionUserId: user.id
-                                },
-                                eventId.toString()
+        this._discord.bot.on(Events.InteractionCreate, async (i: Interaction) => {
+            if (i.isButton() && i.customId.startsWith('E-ID')) {
+                try {
+                    await i.deferUpdate();
+                    const [eventIdStr, action, value] = i.customId.split(':');
+
+                    if (action === BTN_EVENT_ACTION.APPLY) {
+                        const classes = await prismaClient.class.findMany({
+                            select: {
+                                base: true
+                            },
+                            distinct: 'base'
+                        });
+                        const row = new ActionRowBuilder<ButtonBuilder>();
+                        for (const baseClass of classes) {
+                            row.addComponents(
+                                new ButtonBuilder()
+                                    .setLabel(baseClass.base)
+                                    .setStyle(ButtonStyle.Primary)
+                                    .setCustomId(
+                                        eventIdStr +
+                                            ':' +
+                                            BTN_EVENT_ACTION.CLASS +
+                                            ':' +
+                                            baseClass.base
+                                    )
                             );
                         }
-                    } else if (Buffer.from(reaction.emoji.name).toString('hex') === 'f09f9aab') {
-                        const eventId = this._getEventIdFromMessage(reaction.message);
-                        if (eventId) {
+                        await i.followUp({
+                            content: 'Wähle deine Basisklasse!',
+                            components: [row],
+                            ephemeral: true
+                        });
+                    } else if (action === BTN_EVENT_ACTION.REMOVE) {
+                        if (!value) {
+                            const eventId = Number(eventIdStr.substring(4));
                             const event = await this._getEventFromId(eventId);
                             const spareParty = await this._getSparePartyFromEventId(eventId);
-                            relevatnReaction = true;
-                            let msg = `${event.name}\nE-ID:\t${event.id}\nBitte reagieren mit der Nummer des zu löschenden Characters.`;
                             const partyMembersOfUser = new Array<
                                 PartyMember & { class: Class; partyNumber: number | string }
                             >();
@@ -82,7 +89,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                             ) {
                                 const party = event.partys[partyIndex];
                                 for (const partyMember of party.partyMembers) {
-                                    if (partyMember.userId === user.id)
+                                    if (partyMember.userId === i.user.id)
                                         partyMembersOfUser.push({
                                             ...partyMember,
                                             partyNumber: partyIndex + 1
@@ -90,7 +97,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                 }
                             }
                             for (const partyMember of spareParty.partyMembers) {
-                                if (partyMember.userId === user.id)
+                                if (partyMember.userId === i.user.id)
                                     partyMembersOfUser.push({
                                         ...partyMember,
                                         partyNumber: 'Ersatzbank'
@@ -98,112 +105,75 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                             }
                             if (!partyMembersOfUser.length) return;
                             partyMembersOfUser.sort((a, b) => a.charNo - b.charNo);
-                            partyMembersOfUser.forEach(partyMember => {
-                                msg += `\n#${partyMember.charNo} ${this.toIconString(
-                                    partyMember.class
-                                )} - Group ${partyMember.partyNumber}`;
-                            });
-                            const newMessage = await user.send(msg);
-                            //await this._setReactions(newMessage, 'numbers', 6);
-                        }
-                    }
-                } else if (reaction.emoji) {
-                    const eventId = this._getEventIdFromMessage(reaction.message);
-                    const charNumber = this._iconToNumber(reaction.emoji);
-                    if (eventId && charNumber != null) {
-                        const event = await this._getEventFromId(eventId);
-                        relevatnReaction = true;
-                        await this.action<'REMOVE_MEMBER_BY_USER_ID'>(
-                            {
-                                charNumber,
-                                eventId: event.id,
-                                type: 'REMOVE_MEMBER_BY_USER_ID',
-                                userId: user.id,
-                                actionUserId: user.id
-                            },
-                            eventId.toString()
-                        );
-                    }
-                }
-            } catch (e) {
-                logger.error(e);
-            } finally {
-                if (user.id !== this._discord.bot.user?.id && !reaction.message.guildId)
-                    await reaction.message.delete();
-                else if (user.id !== this._discord.bot.user?.id && relevatnReaction)
-                    await reaction.users.remove(user.id);
-            }
-        });
-        this._discord.bot.on(Events.InteractionCreate, async (i: Interaction) => {
-            if (i.isButton() && i.customId.startsWith('E-ID')) {
-                const [eventIdStr, action, value] = i.customId.split(':');
-
-                if (action === BTN_EVENT_ACTION.APPLY) {
-                    const classes = await prismaClient.class.findMany({
-                        select: {
-                            base: true
-                        },
-                        distinct: 'base'
-                    });
-                    const row = new ActionRowBuilder<ButtonBuilder>();
-                    for (const baseClass of classes) {
-                        row.addComponents(
-                            new ButtonBuilder()
-                                .setLabel(baseClass.base)
-                                .setStyle(ButtonStyle.Primary)
-                                .setCustomId(
-                                    eventIdStr + ':' + BTN_EVENT_ACTION.CLASS + ':' + baseClass.base
-                                )
-                        );
-                    }
-                    await i.reply({
-                        content: 'Wähle deine Basisklasse!',
-                        components: [row],
-                        ephemeral: true
-                    });
-                } else if (action === BTN_EVENT_ACTION.REMOVE) {
-                    if (!value) {
-                        const eventId = Number(eventIdStr.substring(4));
-                        const event = await this._getEventFromId(eventId);
-                        const spareParty = await this._getSparePartyFromEventId(eventId);
-                        const partyMembersOfUser = new Array<
-                            PartyMember & { class: Class; partyNumber: number | string }
-                        >();
-                        for (let partyIndex = 0; partyIndex < event.partys.length; partyIndex++) {
-                            const party = event.partys[partyIndex];
-                            for (const partyMember of party.partyMembers) {
-                                if (partyMember.userId === i.user.id)
-                                    partyMembersOfUser.push({
-                                        ...partyMember,
-                                        partyNumber: partyIndex + 1
-                                    });
+                            const rows = new Array<ActionRowBuilder<ButtonBuilder>>();
+                            let count = 1;
+                            let ab = new ActionRowBuilder<ButtonBuilder>();
+                            for (const partyMember of partyMembersOfUser) {
+                                ab.addComponents(
+                                    new ButtonBuilder()
+                                        .setLabel(
+                                            '#' +
+                                                partyMember.charNo +
+                                                ' - ' +
+                                                partyMember.class.name
+                                        )
+                                        .setStyle(ButtonStyle.Primary)
+                                        .setCustomId(
+                                            eventIdStr +
+                                                ':' +
+                                                BTN_EVENT_ACTION.REMOVE +
+                                                ':' +
+                                                partyMember.charNo
+                                        )
+                                );
+                                if (count === 5) {
+                                    rows.push(ab);
+                                    ab = new ActionRowBuilder<ButtonBuilder>();
+                                    count = 1;
+                                } else {
+                                    count++;
+                                }
                             }
+                            if (count != 1) rows.push(ab);
+                            await i.followUp({
+                                content: 'Welchen Character möchtest du entfernen?',
+                                ephemeral: true,
+                                components: rows
+                            });
+                        } else {
+                            const eventId = Number(eventIdStr.substring(4));
+                            await this.action<'REMOVE_MEMBER_BY_USER_ID'>(
+                                {
+                                    charNumber: Number(value),
+                                    eventId,
+                                    type: 'REMOVE_MEMBER_BY_USER_ID',
+                                    userId: i.user.id,
+                                    actionUserId: i.user.id
+                                },
+                                eventId.toString()
+                            );
+                            await i.editReply({ content: 'Done!', components: [] });
                         }
-                        for (const partyMember of spareParty.partyMembers) {
-                            if (partyMember.userId === i.user.id)
-                                partyMembersOfUser.push({
-                                    ...partyMember,
-                                    partyNumber: 'Ersatzbank'
-                                });
-                        }
-                        if (!partyMembersOfUser.length) return;
-                        partyMembersOfUser.sort((a, b) => a.charNo - b.charNo);
+                    } else if (action === BTN_EVENT_ACTION.CLASS) {
+                        const subClasses = await prismaClient.class.findMany({
+                            where: {
+                                base: <BaseClass>value
+                            }
+                        });
                         const rows = new Array<ActionRowBuilder<ButtonBuilder>>();
                         let count = 1;
                         let ab = new ActionRowBuilder<ButtonBuilder>();
-                        for (const partyMember of partyMembersOfUser) {
+                        for (const subClass of subClasses) {
                             ab.addComponents(
                                 new ButtonBuilder()
-                                    .setLabel(
-                                        '#' + partyMember.charNo + ' - ' + partyMember.class.name
-                                    )
+                                    .setLabel(subClass.name)
                                     .setStyle(ButtonStyle.Primary)
                                     .setCustomId(
                                         eventIdStr +
                                             ':' +
-                                            BTN_EVENT_ACTION.REMOVE +
+                                            BTN_EVENT_ACTION.SUBCLASS +
                                             ':' +
-                                            partyMember.charNo
+                                            subClass.name
                                     )
                             );
                             if (count === 5) {
@@ -215,76 +185,29 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                             }
                         }
                         if (count != 1) rows.push(ab);
-                        await i.reply({
-                            content: 'Welchen Character möchtest du entfernen?',
-                            ephemeral: true,
-                            components: rows
+                        await i.editReply({ content: 'Wähle deine Klasse!', components: rows });
+                    } else if (action === BTN_EVENT_ACTION.SUBCLASS) {
+                        const subClass = await prismaClient.class.findUnique({
+                            where: {
+                                name: value
+                            }
                         });
-                    } else {
-                        const eventId = Number(eventIdStr.substring(4));
-                        await this.action<'REMOVE_MEMBER_BY_USER_ID'>(
-                            {
-                                charNumber: Number(value),
-                                eventId,
-                                type: 'REMOVE_MEMBER_BY_USER_ID',
-                                userId: i.user.id,
-                                actionUserId: i.user.id
-                            },
-                            eventId.toString()
-                        );
-                        await i.update({ content: 'Done!', components: [] });
-                    }
-                } else if (action === BTN_EVENT_ACTION.CLASS) {
-                    const subClasses = await prismaClient.class.findMany({
-                        where: {
-                            base: <BaseClass>value
+                        if (subClass) {
+                            await this.action<'ADD_MEMBER'>(
+                                {
+                                    classIcon: subClass.icon,
+                                    eventId: Number(eventIdStr.substring(4)),
+                                    type: 'ADD_MEMBER',
+                                    userId: i.user.id,
+                                    actionUserId: i.user.id
+                                },
+                                eventIdStr
+                            );
                         }
-                    });
-                    const rows = new Array<ActionRowBuilder<ButtonBuilder>>();
-                    let count = 1;
-                    let ab = new ActionRowBuilder<ButtonBuilder>();
-                    for (const subClass of subClasses) {
-                        ab.addComponents(
-                            new ButtonBuilder()
-                                .setLabel(subClass.name)
-                                .setStyle(ButtonStyle.Primary)
-                                .setCustomId(
-                                    eventIdStr +
-                                        ':' +
-                                        BTN_EVENT_ACTION.SUBCLASS +
-                                        ':' +
-                                        subClass.name
-                                )
-                        );
-                        if (count === 5) {
-                            rows.push(ab);
-                            ab = new ActionRowBuilder<ButtonBuilder>();
-                            count = 1;
-                        } else {
-                            count++;
-                        }
+                        await i.editReply({ content: 'Done!', components: [] });
                     }
-                    if (count != 1) rows.push(ab);
-                    await i.update({ content: 'Wähle deine Klasse!', components: rows });
-                } else if (action === BTN_EVENT_ACTION.SUBCLASS) {
-                    const subClass = await prismaClient.class.findUnique({
-                        where: {
-                            name: value
-                        }
-                    });
-                    if (subClass) {
-                        await this.action<'ADD_MEMBER'>(
-                            {
-                                classIcon: subClass.icon,
-                                eventId: Number(eventIdStr.substring(4)),
-                                type: 'ADD_MEMBER',
-                                userId: i.user.id,
-                                actionUserId: i.user.id
-                            },
-                            eventIdStr.toString()
-                        );
-                    }
-                    await i.update({ content: 'Done!', components: [] });
+                } catch (e) {
+                    await i.followUp({ content: 'Ups something went wrong!', ephemeral: true });
                 }
             }
         });
