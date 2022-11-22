@@ -387,6 +387,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                 free,
                 name,
                 channelId,
+                logMode: LogMode.SILENT,
                 partys: {
                     createMany: {
                         data: [{ isSpareBench: true }, {}]
