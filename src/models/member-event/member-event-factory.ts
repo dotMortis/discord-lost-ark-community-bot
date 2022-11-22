@@ -44,6 +44,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
         this._discord.bot.on(Events.InteractionCreate, async (i: Interaction) => {
             if (i.isButton() && i.customId.startsWith('E-ID')) {
                 try {
+                    await i.deferUpdate();
                     const [eventIdStr, action, value] = i.customId.split(':');
 
                     if (action === BTN_EVENT_ACTION.APPLY) {
@@ -68,7 +69,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                     )
                             );
                         }
-                        await i.reply({
+                        await i.followUp({
                             content: 'Wähle deine Basisklasse!',
                             components: [row],
                             ephemeral: true
@@ -134,7 +135,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                 }
                             }
                             if (count != 1) rows.push(ab);
-                            await i.reply({
+                            await i.followUp({
                                 content: 'Welchen Character möchtest du entfernen?',
                                 ephemeral: true,
                                 components: rows
@@ -151,7 +152,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                 },
                                 eventId.toString()
                             );
-                            await i.update({ content: 'Done!', components: [] });
+                            await i.editReply({ content: 'Done!', components: [] });
                         }
                     } else if (action === BTN_EVENT_ACTION.CLASS) {
                         const subClasses = await prismaClient.class.findMany({
@@ -184,7 +185,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                             }
                         }
                         if (count != 1) rows.push(ab);
-                        await i.update({ content: 'Wähle deine Klasse!', components: rows });
+                        await i.editReply({ content: 'Wähle deine Klasse!', components: rows });
                     } else if (action === BTN_EVENT_ACTION.SUBCLASS) {
                         const subClass = await prismaClient.class.findUnique({
                             where: {
@@ -203,7 +204,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                 eventIdStr
                             );
                         }
-                        await i.update({ content: 'Done!', components: [] });
+                        await i.editReply({ content: 'Done!', components: [] });
                     }
                 } catch (e) {
                     await i.reply({ content: 'Ups something went wrong!', ephemeral: true });
