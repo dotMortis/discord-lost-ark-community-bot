@@ -9,8 +9,6 @@ export const ITEMLEVEL_REACTION: TReaction = {
         'loa_t1',
         'loa_t2',
         'loa_argos',
-        'loa_argosp2',
-        'loa_argosp3',
         'loa_valtannm',
         'loa_valtanhm',
         'loa_vykasnm',
@@ -18,18 +16,7 @@ export const ITEMLEVEL_REACTION: TReaction = {
         'loa_kakul'
     ],
     ident: 'LEVEL_R',
-    roles: [
-        'Tier1',
-        'Tier2',
-        'ArgosP1',
-        'ArgosP2',
-        'ArgosP3',
-        'ValtanNM',
-        'ValtanHM',
-        'VykasNM',
-        'VykasHM',
-        'Kakul'
-    ],
+    roles: ['Tier1', 'Tier2', 'Argos', 'ValtanNM', 'ValtanHM', 'VykasNM', 'VykasHM', 'Kakul'],
     desc: [['!dot assign LEVEL_R', 'Setzt den aktiven Channel für die Content-Abo-Nachricht']],
     text: getEmbedItemLevelReaction,
     addCallback: async function (
