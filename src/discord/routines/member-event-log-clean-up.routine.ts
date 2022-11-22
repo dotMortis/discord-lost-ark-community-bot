@@ -1,5 +1,6 @@
 import { prismaClient } from '../../db/prisma-client';
-import { Discord, TRoutine } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TRoutine } from '../event.types';
 
 let lastRun = 0;
 

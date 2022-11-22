@@ -1,6 +1,7 @@
 import { Message } from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
-import { Discord, TDefaultCommand } from '../discord.model';
+import { Discord } from '../discord.model';
+import { TDefaultCommand } from '../event.types';
 export const ASSIGN_COMMAND: TDefaultCommand = {
     command: 'assign',
     minLength: 3,

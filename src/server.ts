@@ -10,7 +10,7 @@ import { Discord } from './discord/discord.model';
 import { GIFT_EVENT_ALERT } from './discord/event-alerts/gift.event-alert';
 import { SERIA_EVENT_ALERT } from './discord/event-alerts/seria.event-alert';
 import {
-    ADD_MEMBER_EVENT,
+    CREATE,
     DESCRIPE_EVENT,
     DESCRIPE_EVENT_PARTY,
     IS_DONE_EVENT,
@@ -21,8 +21,8 @@ import {
     LOG_MODE_EVENT,
     MOVE_MEMBER_EVENT_PARTY,
     MOVE_MEMBER_EVENT_SPARE,
-    REMOVE_MEMBER_EVENT,
-    RENAME_EVENT,
+    REMOVE,
+    RENAME,
     SWITCH_MEMBERS_EVENT_PARTY
 } from './discord/member-event-commands/member-event-commands';
 import { ROLL_PUB_COMMAND } from './discord/public-commands/roll.public-command';
@@ -52,21 +52,28 @@ export class Server {
             reactions: [WELCOME_REACTION, ALERT_REACTION, ITEMLEVEL_REACTION],
             alerts: [ADVENTURE_ALERT],
             eventAlerts: [SERIA_EVENT_ALERT, GIFT_EVENT_ALERT],
-            memberEvents: [
-                ADD_MEMBER_EVENT,
-                REMOVE_MEMBER_EVENT,
-                DESCRIPE_EVENT,
-                DESCRIPE_EVENT_PARTY,
-                SWITCH_MEMBERS_EVENT_PARTY,
-                KICK_MEMBER_EVENT_PARTY,
-                MOVE_MEMBER_EVENT_PARTY,
-                IS_DONE_EVENT_PARTY,
-                IS_DONE_EVENT,
-                LIST_EVENTS,
-                LOGS_EVENT,
-                RENAME_EVENT,
-                LOG_MODE_EVENT,
-                MOVE_MEMBER_EVENT_SPARE
+            slashCommands: [
+                {
+                    name: 'event',
+                    description: 'Event manager',
+                    cb: null,
+                    subs: {
+                        create: CREATE,
+                        remove: REMOVE,
+                        desc: DESCRIPE_EVENT,
+                        name: RENAME,
+                        descp: DESCRIPE_EVENT_PARTY,
+                        switch: SWITCH_MEMBERS_EVENT_PARTY,
+                        move: MOVE_MEMBER_EVENT_PARTY,
+                        spare: MOVE_MEMBER_EVENT_SPARE,
+                        kick: KICK_MEMBER_EVENT_PARTY,
+                        donep: IS_DONE_EVENT_PARTY,
+                        donee: IS_DONE_EVENT,
+                        list: LIST_EVENTS,
+                        logs: LOGS_EVENT,
+                        logmode: LOG_MODE_EVENT
+                    }
+                }
             ],
             publicCommands: [ROLL_PUB_COMMAND]
         });

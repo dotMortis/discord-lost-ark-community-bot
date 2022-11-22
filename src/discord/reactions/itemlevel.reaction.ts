@@ -1,7 +1,8 @@
 import { MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
 import { TCustomEmojiName } from '../../models/custom-emoji/custom-emoji.collection';
-import { Discord, TReaction } from '../discord.model';
+import { Discord } from '../discord.model';
 import { getEmbedItemLevelReaction } from '../embeds/content-abo.embed';
+import { TReaction } from '../event.types';
 
 export const ITEMLEVEL_REACTION: TReaction = {
     icons: <Array<TCustomEmojiName>>[

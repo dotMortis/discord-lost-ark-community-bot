@@ -1,4 +1,4 @@
-import { TPublicCommand } from '../discord.model';
+import { TPublicCommand } from '../event.types';
 
 export const ROLL_PUB_COMMAND: TPublicCommand = {
     command: 'roll',

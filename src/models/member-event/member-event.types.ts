@@ -92,3 +92,10 @@ export type TMemberEventName = keyof TMemberEvents;
 export type TMemberEvent = TMemberEvents[keyof TMemberEvents];
 
 export type TActionresult = { actionLog: string | null; event: Event };
+
+export enum BTN_EVENT_ACTION {
+    APPLY = 'APPLY',
+    REMOVE = 'REMOVE',
+    CLASS = 'CLASS',
+    SUBCLASS = 'SUBCLASS'
+}

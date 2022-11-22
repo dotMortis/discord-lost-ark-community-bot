@@ -76,6 +76,7 @@ model PartyMember {
 
 model Class {
     uid          String        @id @default(uuid()) @db.Char(36)
+    base         BaseClass
     name         String        @unique
     icon         String        @unique
     role         Role
@@ -93,4 +94,12 @@ enum LogMode {
     FULL
     SILENT
     NO_PING
+}
+
+enum BaseClass {
+    Mage
+    Gunner
+    Warrior
+    Assassin
+    MartialArtist
 }

@@ -1,7 +1,18 @@
 import { logger } from '@bits_devel/logger';
 import { EmbedBuilder } from '@discordjs/builders';
-import { Class, Event, LogMode, Party, PartyMember, Role } from '@prisma/client';
-import { Emoji, Message, PartialMessage, TextChannel, ThreadAutoArchiveDuration } from 'discord.js';
+import { BaseClass, Class, Event, LogMode, Party, PartyMember, Role } from '@prisma/client';
+import {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    Emoji,
+    Events,
+    Interaction,
+    Message,
+    PartialMessage,
+    TextChannel,
+    ThreadAutoArchiveDuration
+} from 'discord.js';
 import { prismaClient } from '../../db/prisma-client';
 import { Discord } from '../../discord/discord.model';
 import { getEmbedMemberEvent } from '../../discord/embeds/member-event.embed';
@@ -9,7 +20,7 @@ import { CustomEmojiFactory } from '../custom-emoji/custom-emoji-factory.model';
 import { TCustomEmojiName } from '../custom-emoji/custom-emoji.collection';
 import { NUMERIC_EMOTES } from '../numeric-emots.collection';
 import { ActionQueue, TActionQueueData } from './action-queue';
-import { TActionresult, TMemberEvents } from './member-event.types';
+import { BTN_EVENT_ACTION, TActionresult, TMemberEvents } from './member-event.types';
 
 export class MemberEventFactory extends ActionQueue<TMemberEvents> {
     //#region member variables
@@ -93,7 +104,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                                 )} - Group ${partyMember.partyNumber}`;
                             });
                             const newMessage = await user.send(msg);
-                            await this._setReactions(newMessage, 'numbers', 6);
+                            //await this._setReactions(newMessage, 'numbers', 6);
                         }
                     }
                 } else if (reaction.emoji) {
@@ -121,6 +132,160 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                     await reaction.message.delete();
                 else if (user.id !== this._discord.bot.user?.id && relevatnReaction)
                     await reaction.users.remove(user.id);
+            }
+        });
+        this._discord.bot.on(Events.InteractionCreate, async (i: Interaction) => {
+            if (i.isButton() && i.customId.startsWith('E-ID')) {
+                const [eventIdStr, action, value] = i.customId.split(':');
+
+                if (action === BTN_EVENT_ACTION.APPLY) {
+                    const classes = await prismaClient.class.findMany({
+                        select: {
+                            base: true
+                        },
+                        distinct: 'base'
+                    });
+                    const row = new ActionRowBuilder<ButtonBuilder>();
+                    for (const baseClass of classes) {
+                        row.addComponents(
+                            new ButtonBuilder()
+                                .setLabel(baseClass.base)
+                                .setStyle(ButtonStyle.Primary)
+                                .setCustomId(
+                                    eventIdStr + ':' + BTN_EVENT_ACTION.CLASS + ':' + baseClass.base
+                                )
+                        );
+                    }
+                    await i.reply({
+                        content: 'Wähle deine Basisklasse!',
+                        components: [row],
+                        ephemeral: true
+                    });
+                } else if (action === BTN_EVENT_ACTION.REMOVE) {
+                    if (!value) {
+                        const eventId = Number(eventIdStr.substring(4));
+                        const event = await this._getEventFromId(eventId);
+                        const spareParty = await this._getSparePartyFromEventId(eventId);
+                        const partyMembersOfUser = new Array<
+                            PartyMember & { class: Class; partyNumber: number | string }
+                        >();
+                        for (let partyIndex = 0; partyIndex < event.partys.length; partyIndex++) {
+                            const party = event.partys[partyIndex];
+                            for (const partyMember of party.partyMembers) {
+                                if (partyMember.userId === i.user.id)
+                                    partyMembersOfUser.push({
+                                        ...partyMember,
+                                        partyNumber: partyIndex + 1
+                                    });
+                            }
+                        }
+                        for (const partyMember of spareParty.partyMembers) {
+                            if (partyMember.userId === i.user.id)
+                                partyMembersOfUser.push({
+                                    ...partyMember,
+                                    partyNumber: 'Ersatzbank'
+                                });
+                        }
+                        if (!partyMembersOfUser.length) return;
+                        partyMembersOfUser.sort((a, b) => a.charNo - b.charNo);
+                        const rows = new Array<ActionRowBuilder<ButtonBuilder>>();
+                        let count = 1;
+                        let ab = new ActionRowBuilder<ButtonBuilder>();
+                        for (const partyMember of partyMembersOfUser) {
+                            ab.addComponents(
+                                new ButtonBuilder()
+                                    .setLabel(
+                                        '#' + partyMember.charNo + ' - ' + partyMember.class.name
+                                    )
+                                    .setStyle(ButtonStyle.Primary)
+                                    .setCustomId(
+                                        eventIdStr +
+                                            ':' +
+                                            BTN_EVENT_ACTION.REMOVE +
+                                            ':' +
+                                            partyMember.charNo
+                                    )
+                            );
+                            if (count === 5) {
+                                rows.push(ab);
+                                ab = new ActionRowBuilder<ButtonBuilder>();
+                                count = 1;
+                            } else {
+                                count++;
+                            }
+                        }
+                        if (count != 1) rows.push(ab);
+                        await i.reply({
+                            content: 'Welchen Character möchtest du entfernen?',
+                            ephemeral: true,
+                            components: rows
+                        });
+                    } else {
+                        const eventId = Number(eventIdStr.substring(4));
+                        await this.action<'REMOVE_MEMBER_BY_USER_ID'>(
+                            {
+                                charNumber: Number(value),
+                                eventId,
+                                type: 'REMOVE_MEMBER_BY_USER_ID',
+                                userId: i.user.id,
+                                actionUserId: i.user.id
+                            },
+                            eventId.toString()
+                        );
+                        await i.update({ content: 'Done!', components: [] });
+                    }
+                } else if (action === BTN_EVENT_ACTION.CLASS) {
+                    const subClasses = await prismaClient.class.findMany({
+                        where: {
+                            base: <BaseClass>value
+                        }
+                    });
+                    const rows = new Array<ActionRowBuilder<ButtonBuilder>>();
+                    let count = 1;
+                    let ab = new ActionRowBuilder<ButtonBuilder>();
+                    for (const subClass of subClasses) {
+                        ab.addComponents(
+                            new ButtonBuilder()
+                                .setLabel(subClass.name)
+                                .setStyle(ButtonStyle.Primary)
+                                .setCustomId(
+                                    eventIdStr +
+                                        ':' +
+                                        BTN_EVENT_ACTION.SUBCLASS +
+                                        ':' +
+                                        subClass.name
+                                )
+                        );
+                        if (count === 5) {
+                            rows.push(ab);
+                            ab = new ActionRowBuilder<ButtonBuilder>();
+                            count = 1;
+                        } else {
+                            count++;
+                        }
+                    }
+                    if (count != 1) rows.push(ab);
+                    await i.update({ content: 'Wähle deine Klasse!', components: rows });
+                } else if (action === BTN_EVENT_ACTION.SUBCLASS) {
+                    const subClass = await prismaClient.class.findUnique({
+                        where: {
+                            name: value
+                        }
+                    });
+                    if (subClass) {
+                        await this.action<'ADD_MEMBER'>(
+                            {
+                                classIcon: subClass.icon,
+                                eventId: Number(eventIdStr.substring(4)),
+                                type: 'ADD_MEMBER',
+                                userId: i.user.id,
+                                actionUserId: i.user.id
+                            },
+                            eventIdStr.toString()
+                        );
+                    }
+                    await i.update({ content: 'Done!', components: [] });
+                }
             }
         });
         this.isInit();
@@ -839,7 +1004,10 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
         if (event.messageId) {
             const message = await this.getEventMessage(event);
             if (message) {
-                await message.edit({ content: null, embeds: [embed] });
+                await message.edit({
+                    content: null,
+                    embeds: [embed]
+                });
                 if (fetchEvent) {
                     await message.thread?.messages.fetch();
                     const role = this._discord.guild.roles.cache.find(
@@ -867,7 +1035,10 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
         channel: TextChannel,
         embed: EmbedBuilder
     ): Promise<void> {
-        const newMessage = await channel.send({ embeds: [embed] });
+        const newMessage = await channel.send({
+            embeds: [embed],
+            components: [this._getReactions(event.id)]
+        });
         await prismaClient.event.update({
             where: {
                 id: event.id
@@ -880,9 +1051,10 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
             name: event.name,
             autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek
         });
-        const newThreadMessage = await thread.send(`E-ID:\t${event.id}`);
-        await this._setReactions(newMessage, 'classes');
-        await this._setReactions(newThreadMessage, 'classes');
+        await thread.send({
+            content: `E-ID:\t${event.id}`,
+            components: [this._getReactions(event.id)]
+        });
         const eventLogs = await prismaClient.eventLog.findMany({
             where: {
                 eventId: event.id
@@ -1090,33 +1262,17 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
         }
     }
 
-    private async _setReactions(message: Message, type: 'classes'): Promise<void>;
-    private async _setReactions(message: Message, type: 'numbers', count: number): Promise<void>;
-    private async _setReactions(
-        message: Message,
-        type: 'classes' | 'numbers',
-        count?: number
-    ): Promise<void> {
-        if (type === 'classes') {
-            const classes = await prismaClient.class.findMany();
-            const reactPromise = Promise.all([
-                ...classes.map(laClass => {
-                    const customEmoji = this._customEmojiFactory.fromName(
-                        <TCustomEmojiName>laClass.icon
-                    );
-                    customEmoji ? message.react(customEmoji.id) : undefined;
-                }),
-                message.react('🚫')
-            ]);
-            await reactPromise;
-        } else {
-            const reactPromise = Promise.all(
-                Object.values(NUMERIC_EMOTES)
-                    .slice(0, count)
-                    .map(val => message.react(val.unicode))
-            );
-            await reactPromise;
-        }
+    private _getReactions(eventId: number): ActionRowBuilder<ButtonBuilder> {
+        return new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setLabel('Apply')
+                .setStyle(ButtonStyle.Primary)
+                .setCustomId('E-ID' + eventId + ':' + BTN_EVENT_ACTION.APPLY),
+            new ButtonBuilder()
+                .setLabel(`Applyn't`)
+                .setStyle(ButtonStyle.Danger)
+                .setCustomId('E-ID' + eventId + ':' + BTN_EVENT_ACTION.REMOVE)
+        );
     }
 
     private _getEventIdFromMessage(message: Message<boolean> | PartialMessage): number | null {
