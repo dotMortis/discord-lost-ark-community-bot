@@ -163,18 +163,23 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                         let count = 1;
                         let ab = new ActionRowBuilder<ButtonBuilder>();
                         for (const subClass of subClasses) {
-                            ab.addComponents(
-                                new ButtonBuilder()
-                                    .setLabel(subClass.name)
-                                    .setStyle(ButtonStyle.Primary)
-                                    .setCustomId(
-                                        eventIdStr +
-                                            ':' +
-                                            BTN_EVENT_ACTION.SUBCLASS +
-                                            ':' +
-                                            subClass.name
-                                    )
-                            );
+                            const button = new ButtonBuilder()
+                                .setLabel(subClass.name)
+                                .setStyle(
+                                    subClass.role === 'SUPP'
+                                        ? ButtonStyle.Success
+                                        : ButtonStyle.Danger
+                                )
+                                .setCustomId(
+                                    eventIdStr +
+                                        ':' +
+                                        BTN_EVENT_ACTION.SUBCLASS +
+                                        ':' +
+                                        subClass.name
+                                );
+                            const classEmoji = this.toIconString(subClass);
+                            if (classEmoji) button.setEmoji(classEmoji);
+                            ab.addComponents(button);
                             if (count === 5) {
                                 rows.push(ab);
                                 ab = new ActionRowBuilder<ButtonBuilder>();
