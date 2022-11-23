@@ -6,6 +6,7 @@ import {
     PartialMessageReaction,
     PartialUser,
     PermissionResolvable,
+    Permissions,
     TextChannel,
     User
 } from 'discord.js';
@@ -14,6 +15,7 @@ import { Discord } from './discord.model';
 export type SlashCommand = {
     name: string;
     description: string;
+    permission?: Permissions | bigint | number | null;
     cb: null | ((interaction: ChatInputCommandInteraction, discord: Discord) => Promise<void>);
     subs: {
         [key: string]: SlashSubCommand;

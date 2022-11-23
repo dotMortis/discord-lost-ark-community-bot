@@ -32,6 +32,7 @@ import { WELCOME_REACTION } from './discord/reactions/welcome.reaction';
 import { CLEAN_UP_ROUTINE } from './discord/routines/clean-up.routine';
 import { COMMANDS_CLEAN_UP_ROUTINE } from './discord/routines/commands-clean-up.routine';
 import { MEMBER_EVENT_CLEAN_UP_ROUTINE } from './discord/routines/member-event-log-clean-up.routine';
+import { KEK } from './discord/slash-commands/kek.commands';
 export class Server {
     discord: Discord;
 
@@ -73,7 +74,8 @@ export class Server {
                         logs: LOGS_EVENT,
                         logmode: LOG_MODE_EVENT
                     }
-                }
+                },
+                KEK
             ],
             publicCommands: [ROLL_PUB_COMMAND]
         });

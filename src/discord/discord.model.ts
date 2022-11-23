@@ -26,6 +26,7 @@ import {
     TReaction,
     TRoutine
 } from './event.types';
+import { blameKek, iniKeks } from './slash-commands/kek.commands';
 
 export class Discord {
     //#region Properties
@@ -252,6 +253,7 @@ export class Discord {
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
         await this._customEmojiFactory.init();
+        await iniKeks(this);
         await this._initSlashCommands(slashCommands);
         this._initOldCommands(defaultCommands, publicCommands);
         await this._initChannels();
@@ -267,7 +269,8 @@ export class Discord {
             const mapInfo = {
                 command: new SlashCommandBuilder()
                     .setName(commandOpts.name)
-                    .setDescription(commandOpts.description),
+                    .setDescription(commandOpts.description)
+                    .setDefaultMemberPermissions(commandOpts.permission || undefined),
                 commandOpts,
                 subs: new Map<string, SlashSubCommand>()
             };
@@ -313,6 +316,7 @@ export class Discord {
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
             try {
+                await blameKek(msg);
                 const eventAlertDatas = this._eventAlerts.filter(
                     eventAlertData =>
                         eventAlertData.channelEventId === msg.channelId &&
