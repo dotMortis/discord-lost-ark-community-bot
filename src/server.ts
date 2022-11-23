@@ -27,7 +27,7 @@ import { WELCOME_REACTION } from './discord/reactions/welcome.reaction';
 import { CLEAN_UP_ROUTINE } from './discord/routines/clean-up.routine';
 import { COMMANDS_CLEAN_UP_ROUTINE } from './discord/routines/commands-clean-up.routine';
 import { MEMBER_EVENT_CLEAN_UP_ROUTINE } from './discord/routines/member-event-log-clean-up.routine';
-import { KEK } from './discord/slash-commands/kek.commands';
+import { iniKeks, KEK } from './discord/slash-commands/kek.commands';
 import { KNOWLEDGE, KNOWLEDGE_BUTTONS } from './discord/slash-commands/knowledge.command';
 import { ROLL } from './discord/slash-commands/roll.commands';
 export class Server {
@@ -73,5 +73,6 @@ export class Server {
             ],
             buttonEvents: [KNOWLEDGE_BUTTONS]
         });
+        await iniKeks(this.discord);
     }
 }

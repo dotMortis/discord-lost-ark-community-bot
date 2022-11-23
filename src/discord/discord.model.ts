@@ -25,7 +25,7 @@ import {
     TReaction,
     TRoutine
 } from './event.types';
-import { blameKek, iniKeks } from './slash-commands/kek.commands';
+import { blameKek } from './slash-commands/kek.commands';
 
 export class Discord {
     //#region Properties
@@ -252,7 +252,6 @@ export class Discord {
         await this.guild.members.fetch();
         for (const btn of buttonEvents) this.buttonEvents.add(btn);
         await this._customEmojiFactory.init();
-        await iniKeks(this);
         await this._initSlashCommands(slashCommands);
         this._initInteractionEvents();
         this._initOldCommands(defaultCommands);
