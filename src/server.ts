@@ -2,10 +2,6 @@ import { connectPrismaClient } from './db/prisma-client';
 import { ADVENTURE_ALERT } from './discord/alerts/adventure.alert';
 import { ASSIGN_COMMAND } from './discord/deault-commands/assign.command';
 import { COMMAND_COMMAND } from './discord/deault-commands/command.command';
-import {
-    ADD_CUSTOM_COMMAND,
-    DEL_CUSTOM_COMMAND
-} from './discord/deault-commands/custom-command.command';
 import { Discord } from './discord/discord.model';
 import { GIFT_EVENT_ALERT } from './discord/event-alerts/gift.event-alert';
 import { SERIA_EVENT_ALERT } from './discord/event-alerts/seria.event-alert';
@@ -25,14 +21,15 @@ import {
     RENAME,
     SWITCH_MEMBERS_EVENT_PARTY
 } from './discord/member-event-commands/member-event-commands';
-import { ROLL_PUB_COMMAND } from './discord/public-commands/roll.public-command';
 import { ALERT_REACTION } from './discord/reactions/alert.reaction';
 import { ITEMLEVEL_REACTION } from './discord/reactions/itemlevel.reaction';
 import { WELCOME_REACTION } from './discord/reactions/welcome.reaction';
 import { CLEAN_UP_ROUTINE } from './discord/routines/clean-up.routine';
 import { COMMANDS_CLEAN_UP_ROUTINE } from './discord/routines/commands-clean-up.routine';
 import { MEMBER_EVENT_CLEAN_UP_ROUTINE } from './discord/routines/member-event-log-clean-up.routine';
+import { KNOWLEDGE } from './discord/slash-commands/custom.command';
 import { KEK } from './discord/slash-commands/kek.commands';
+import { ROLL } from './discord/slash-commands/roll.commands';
 export class Server {
     discord: Discord;
 
@@ -43,12 +40,7 @@ export class Server {
     async init() {
         await connectPrismaClient();
         await this.discord.init({
-            defaultCommands: [
-                ASSIGN_COMMAND,
-                COMMAND_COMMAND,
-                DEL_CUSTOM_COMMAND,
-                ADD_CUSTOM_COMMAND
-            ],
+            defaultCommands: [ASSIGN_COMMAND, COMMAND_COMMAND],
             routines: [CLEAN_UP_ROUTINE, COMMANDS_CLEAN_UP_ROUTINE, MEMBER_EVENT_CLEAN_UP_ROUTINE],
             reactions: [WELCOME_REACTION, ALERT_REACTION, ITEMLEVEL_REACTION],
             alerts: [ADVENTURE_ALERT],
@@ -75,9 +67,11 @@ export class Server {
                         logmode: LOG_MODE_EVENT
                     }
                 },
-                KEK
+                KEK,
+                ROLL,
+                KNOWLEDGE
             ],
-            publicCommands: [ROLL_PUB_COMMAND]
+            buttonEvents: []
         });
     }
 }

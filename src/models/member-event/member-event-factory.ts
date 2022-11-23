@@ -6,8 +6,6 @@ import {
     ButtonBuilder,
     ButtonStyle,
     Emoji,
-    Events,
-    Interaction,
     Message,
     PartialMessage,
     TextChannel,
@@ -41,8 +39,9 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
     //#region public func
     public async init(): Promise<void> {
         await this._fetchAllMessages();
-        this._discord.bot.on(Events.InteractionCreate, async (i: Interaction) => {
-            if (i.isButton() && i.customId.startsWith('E-ID')) {
+        this._discord.buttonEvents.add({
+            prefix: 'E-ID',
+            cb: async (i, cd) => {
                 try {
                     await i.deferUpdate();
                     const [eventIdStr, action, value] = i.customId.split(':');

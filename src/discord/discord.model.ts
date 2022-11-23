@@ -10,19 +10,18 @@ import {
     TextChannel
 } from 'discord.js';
 import { staticConfig } from '../config/static-config';
-import { prismaClient } from '../db/prisma-client';
 import { GetConfig, SetConfig } from '../models/config.model';
 import { CustomEmojiFactory } from '../models/custom-emoji/custom-emoji-factory.model';
 import { MemberEventFactory } from '../models/member-event/member-event-factory';
 import { registerCommands } from './commands-registration';
 import { COMMAND_COMMAND } from './deault-commands/command.command';
 import {
+    ButtonInteractionInfo,
     SlashCommand,
     SlashSubCommand,
     TAlert,
     TDefaultCommand,
     TEventAlert,
-    TPublicCommand,
     TReaction,
     TRoutine
 } from './event.types';
@@ -66,14 +65,6 @@ export class Discord {
     }
 
     private _defaultCommands: Map<string, TDefaultCommand>;
-    private _publicCommands: Map<string, TPublicCommand>;
-    get publicCommands() {
-        return {
-            get: (key: string) => this._publicCommands.get(key.toLocaleLowerCase()),
-            set: (key: string, value: TPublicCommand) => this._publicCommands.set(key, value),
-            map: this._publicCommands
-        };
-    }
 
     private _slashCommands: Map<
         string,
@@ -85,7 +76,7 @@ export class Discord {
     >;
     get slashCommands() {
         return {
-            get: (event: string, subEvent?: string) => {
+            get: (event: string, subEvent?: string | null) => {
                 if (!subEvent) {
                     return this._slashCommands.get(event)?.commandOpts;
                 } else {
@@ -151,6 +142,13 @@ export class Discord {
     get memberEvents(): Map<string, SlashCommand> {
         return this._memberEvents;
     }
+
+    private _buttonEvents: Array<ButtonInteractionInfo>;
+    get buttonEvents() {
+        return {
+            add: (interaction: ButtonInteractionInfo) => this._buttonEvents.push(interaction)
+        };
+    }
     //#endregion
 
     //#region constructor
@@ -182,8 +180,8 @@ export class Discord {
             eventAlert: TEventAlert;
         }>();
         this._memberEvents = new Map<string, SlashCommand>();
+        this._buttonEvents = new Array<ButtonInteractionInfo>();
         this._defaultCommands = new Map<string, TDefaultCommand>();
-        this._publicCommands = new Map<string, TPublicCommand>();
         this._slashCommands = new Map<
             string,
             {
@@ -225,8 +223,8 @@ export class Discord {
         reactions: Array<TReaction>;
         alerts: Array<TAlert>;
         eventAlerts: Array<TEventAlert>;
-        slashCommands: SlashCommand[];
-        publicCommands: Array<TPublicCommand>;
+        slashCommands: Array<SlashCommand>;
+        buttonEvents: Array<ButtonInteractionInfo>;
     }) {
         this._bot.on('debug', (msg: string) => {
             logger.debug(msg);
@@ -240,22 +238,16 @@ export class Discord {
                 res();
             });
         });
-        const {
-            defaultCommands,
-            routines,
-            reactions,
-            alerts,
-            eventAlerts,
-            slashCommands,
-            publicCommands
-        } = middlewares;
+        const { defaultCommands, routines, reactions, alerts, eventAlerts, slashCommands } =
+            middlewares;
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
         await this._customEmojiFactory.init();
         await iniKeks(this);
         await this._initSlashCommands(slashCommands);
-        this._initOldCommands(defaultCommands, publicCommands);
+        this._initInteractionEvents();
+        this._initOldCommands(defaultCommands);
         await this._initChannels();
         await this._initReactions(reactions);
         await this._initAlerts(alerts);
@@ -281,10 +273,21 @@ export class Discord {
                 mapInfo.subs.set(subCommandName, subCommandOpts);
             }
         }
+
+        await registerCommands(
+            this,
+            Array.from(this._slashCommands.values()).map(sc => sc.command)
+        );
+    }
+
+    private _initInteractionEvents() {
         this._bot.on(Events.InteractionCreate, async (i: Interaction) => {
-            if (i.isChatInputCommand()) {
-                const command = this.slashCommands.get(i.commandName, i.options.getSubcommand());
-                try {
+            try {
+                if (i.isChatInputCommand()) {
+                    const command = this.slashCommands.get(
+                        i.commandName,
+                        i.options.getSubcommand(false)
+                    );
                     if (command != null && command.cb != null) {
                         const result = await command.cb(i, this);
                         if (result !== false) {
@@ -293,26 +296,21 @@ export class Discord {
                     } else {
                         throw Error('Event not found!');
                     }
-                } catch (e: any) {
-                    await i.reply({ content: e?.message || 'UNKOWN Error', ephemeral: true });
+                } else if (i.isButton()) {
+                    const event = this._buttonEvents.find(e => i.customId.startsWith(e.prefix));
+                    if (event) await event.cb(i, this);
                 }
+            } catch (e: any) {
+                if ('reply' in i)
+                    await i.reply({ content: e?.message || 'UNKOWN Error', ephemeral: true });
+                else logger.error(e);
             }
         });
-        await registerCommands(
-            this,
-            Array.from(this._slashCommands.values()).map(sc => sc.command)
-        );
     }
 
-    private _initOldCommands(
-        defaultCommands: Array<TDefaultCommand>,
-        publicCommands: Array<TPublicCommand>
-    ): void {
+    private _initOldCommands(defaultCommands: Array<TDefaultCommand>): void {
         for (const command of defaultCommands) {
             this._defaultCommands.set(command.command, command);
-        }
-        for (const command of publicCommands) {
-            this.publicCommands.set(command.command, command);
         }
         this._bot.on('messageCreate', async (msg: Message<boolean>) => {
             try {
@@ -347,35 +345,7 @@ export class Discord {
                 ) {
                     return;
                 } else if (!msg.content.trimStart().startsWith(this._prefix)) {
-                    const args = msg.content.split(' ');
-                    let [command] = args;
-                    if ((command = command?.slice(1))) {
-                        if (command.toLocaleLowerCase() === 'commands') {
-                            const commands = await this.getCustomCommandList();
-                            const commandsStr =
-                                'Alle Befehle:\n' +
-                                commands
-                                    .map(com => (com.startsWith('!') ? com : '!' + com))
-                                    .join('\n');
-                            await msg.reply(commandsStr);
-                        } else {
-                            const value = await this.getPublicOrCustomCommand(command);
-                            if (typeof value === 'string') {
-                                await msg.reply(value);
-                            } else if (value != null && args.length >= value.minLength) {
-                                const result = await value.callback(msg, args, this);
-                                if (result) await msg.channel.send(result);
-                            } else {
-                                const commands = await this.getCustomCommandList();
-                                const commandsStr =
-                                    'Nicht gefunden. Alle Befehle:\n' +
-                                    commands
-                                        .map(com => (com.startsWith('!') ? com : '!' + com))
-                                        .join('\n');
-                                await msg.reply(commandsStr);
-                            }
-                        }
-                    }
+                    await msg.delete();
                 } else {
                     msg.content = msg.content.replace(/\ \ +/g, ' ').trim();
                     const args = msg.content.split(' ');
@@ -673,74 +643,4 @@ export class Discord {
             }
         }
     }
-
-    //#region custom commands
-    public async getPublicOrCustomCommand(
-        command: string
-    ): Promise<string | undefined | null | TPublicCommand> {
-        const publicCommand = this.publicCommands.get(command);
-        if (publicCommand) {
-            return publicCommand;
-        } else {
-            const key = `CUSTOM_COM_${command}`;
-            const result = await prismaClient.config.findFirst({
-                where: {
-                    key
-                },
-                select: {
-                    value: true
-                }
-            });
-            return result?.value;
-        }
-    }
-
-    public async getCustomCommandList(): Promise<string[]> {
-        const key = `CUSTOM_COM_`;
-        const customCommands = await prismaClient.config.findMany({
-            where: {
-                key: {
-                    startsWith: key
-                }
-            },
-            select: {
-                key: true
-            },
-            orderBy: {
-                key: 'asc'
-            }
-        });
-        const result = customCommands.map(res => res.key.slice(key.length));
-        for (const pubCommand of this.publicCommands.map.values()) {
-            result.unshift(`${pubCommand.desc[0][0]}\t${pubCommand.desc[0][1]}`);
-        }
-        return result;
-    }
-
-    public async delCustomCommand(command: string): Promise<void> {
-        const key = `CUSTOM_COM_${command}`;
-        await prismaClient.config.delete({
-            where: {
-                key
-            }
-        });
-    }
-
-    public async setCustomCommand(command: string, value: string): Promise<void> {
-        const key = `CUSTOM_COM_${command}`;
-        await prismaClient.config.upsert({
-            create: {
-                key,
-                value
-            },
-            update: {
-                value
-            },
-            where: {
-                key
-            }
-        });
-    }
-
-    //#endregion
 }

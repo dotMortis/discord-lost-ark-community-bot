@@ -1,5 +1,6 @@
 import { EmbedBuilder, SlashCommandSubcommandBuilder } from '@discordjs/builders';
 import {
+    ButtonInteraction,
     ChatInputCommandInteraction,
     Message,
     MessageReaction,
@@ -16,7 +17,12 @@ export type SlashCommand = {
     name: string;
     description: string;
     permission?: Permissions | bigint | number | null;
-    cb: null | ((interaction: ChatInputCommandInteraction, discord: Discord) => Promise<void>);
+    cb:
+        | null
+        | ((
+              interaction: ChatInputCommandInteraction,
+              discord: Discord
+          ) => Promise<void | string | false>);
     subs: {
         [key: string]: SlashSubCommand;
     };
@@ -121,4 +127,9 @@ export type TEventAlert = {
         discord: Discord,
         alertChannel: TextChannel
     ) => Promise<void>;
+};
+
+export type ButtonInteractionInfo = {
+    prefix: string;
+    cb: (interaction: ButtonInteraction, discord: Discord) => Promise<void>;
 };
