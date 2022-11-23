@@ -238,11 +238,19 @@ export class Discord {
                 res();
             });
         });
-        const { defaultCommands, routines, reactions, alerts, eventAlerts, slashCommands } =
-            middlewares;
+        const {
+            defaultCommands,
+            routines,
+            reactions,
+            alerts,
+            eventAlerts,
+            slashCommands,
+            buttonEvents
+        } = middlewares;
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
+        for (const btn of buttonEvents) this.buttonEvents.add(btn);
         await this._customEmojiFactory.init();
         await iniKeks(this);
         await this._initSlashCommands(slashCommands);
@@ -302,7 +310,9 @@ export class Discord {
                 }
             } catch (e: any) {
                 if ('reply' in i)
-                    await i.reply({ content: e?.message || 'UNKOWN Error', ephemeral: true });
+                    await i
+                        .reply({ content: e?.message || 'UNKOWN Error', ephemeral: true })
+                        .catch(e => logger.error(e));
                 else logger.error(e);
             }
         });
