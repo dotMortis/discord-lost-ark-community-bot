@@ -28,6 +28,6 @@ export type TCustomEmojiName =
     | 'la_sorceress'
     | 'la_shadowhunter'
     | 'la_deathblade'
-    | 'la_arcana'
+    | 'la_arcanist'
     | 'la_machinist'
     | 'la_reaper';

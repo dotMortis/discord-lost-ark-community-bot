@@ -49,7 +49,7 @@ export class CustomEmojiFactory {
             la_soulfist: null,
             la_striker: null,
             la_wardancer: null,
-            la_arcana: null,
+            la_arcanist: null,
             la_machinist: null,
             la_reaper: null
         };
