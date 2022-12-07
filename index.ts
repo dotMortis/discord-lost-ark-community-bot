@@ -1,6 +1,11 @@
 import { logger } from '@bits_devel/logger';
 import { Server } from './src/server';
 
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+    logger.error(error);
+});
+
 const start = async () => {
     try {
         const server = new Server();

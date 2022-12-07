@@ -201,6 +201,10 @@ export class Discord {
                 'GuildEmojisAndStickers'
             ]
         });
+        this._bot.on(Events.ShardError, error => {
+            console.error('A websocket connection encountered an error:', error);
+            logger.error(error);
+        });
     }
     //#endregion
 
