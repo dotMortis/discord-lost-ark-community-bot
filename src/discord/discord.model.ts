@@ -254,6 +254,7 @@ export class Discord {
         await Promise.all([promRead, this._bot.login(staticConfig().discord.key)]);
         this._guildId = (await this._bot.guilds.fetch()).first()?.id || '';
         await this.guild.members.fetch();
+        await this.guild.channels.fetch();
         for (const btn of buttonEvents) this.buttonEvents.add(btn);
         await this._customEmojiFactory.init();
         await this._initSlashCommands(slashCommands);
