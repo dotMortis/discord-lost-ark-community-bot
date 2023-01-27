@@ -1,0 +1,1 @@
+INSERT INTO `class` VALUES (UUID(), "Specialist", "Artist", "la_artist", "SUPP");

@@ -102,4 +102,5 @@ enum BaseClass {
     Warrior
     Assassin
     MartialArtist
+    Specialist
 }
