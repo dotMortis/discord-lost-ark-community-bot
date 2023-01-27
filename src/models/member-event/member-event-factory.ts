@@ -53,9 +53,14 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                             },
                             distinct: 'base'
                         });
-                        const row = new ActionRowBuilder<ButtonBuilder>();
+                        const rows = new Array<ActionRowBuilder<ButtonBuilder>>(
+                            new ActionRowBuilder<ButtonBuilder>()
+                        );
                         for (const baseClass of classes) {
-                            row.addComponents(
+                            if (rows[rows.length - 1].components.length === 5) {
+                                rows.push(new ActionRowBuilder<ButtonBuilder>());
+                            }
+                            rows[rows.length - 1].addComponents(
                                 new ButtonBuilder()
                                     .setLabel(baseClass.base)
                                     .setStyle(ButtonStyle.Primary)
@@ -70,7 +75,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                         }
                         await i.followUp({
                             content: 'Wähle deine Basisklasse!',
-                            components: [row],
+                            components: rows,
                             ephemeral: true
                         });
                     } else if (action === BTN_EVENT_ACTION.REMOVE) {
