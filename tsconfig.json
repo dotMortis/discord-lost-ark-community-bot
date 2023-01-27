@@ -2,7 +2,7 @@
     "compilerOptions": {
         "target": "ESNext",
         "module": "commonjs",
-        "lib": ["ESNext"],
+        "lib": ["ESNext", "DOM"],
         "moduleResolution": "node",
         "outDir": "./dist",
         "allowSyntheticDefaultImports": true,

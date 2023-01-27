@@ -1,3 +1,4 @@
+import puppeteer from 'puppeteer';
 import { connectPrismaClient } from './db/prisma-client';
 import { ADVENTURE_ALERT } from './discord/alerts/adventure.alert';
 import { ASSIGN_COMMAND } from './discord/deault-commands/assign.command';
@@ -38,6 +39,58 @@ export class Server {
     }
 
     async init() {
+        const browser = await puppeteer.launch({ headless: false, devtools: true });
+        const page = await browser.newPage();
+
+        await page.goto('https://lostmerchants.com/');
+        await page.evaluate((...res) => {
+            localStorage.setItem('Region', 'EUC');
+            localStorage.setItem('Server', 'Asta');
+        });
+        await page.goto('https://lostmerchants.com/');
+
+        await page.evaluate(async (...res) => {
+            let target = null;
+            while (!target) {
+                target = document.querySelector('.overlay__wrapper ');
+
+                console.log('TARGET', target);
+
+                if (target) {
+                    console.log('HAS TARGET', target);
+
+                    const observer = new MutationObserver(function (m) {
+                        // communicate with node through console.log method
+                        console.log(m);
+
+                        console.log('__mutation');
+                    });
+                    const config = {
+                        attributes: true,
+                        childList: true,
+                        characterData: false,
+                        subtree: true
+                    };
+                    observer.observe(target, config);
+                }
+
+                await new Promise<void>(res => setTimeout(_ => res(), 1000));
+            }
+        });
+
+        page.on('console', async msg => {
+            if (msg.text() === '__mutation') {
+                console.log('NICE');
+                const ele = await page.$('.overlay__wrapper');
+                console.log(ele);
+
+                if (ele) {
+                    await ele.screenshot({ path: 'screenshot.jpg' });
+                }
+            }
+        });
+
+        return;
         await connectPrismaClient();
         await this.discord.init({
             defaultCommands: [ASSIGN_COMMAND, COMMAND_COMMAND],
@@ -75,4 +128,8 @@ export class Server {
         });
         await iniKeks(this.discord);
     }
+}
+
+function puppeteerMutationListener(oldValue: any, newValue: any) {
+    console.log(`${oldValue} -> ${newValue}`);
 }
