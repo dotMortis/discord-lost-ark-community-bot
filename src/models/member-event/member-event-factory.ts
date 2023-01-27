@@ -211,6 +211,7 @@ export class MemberEventFactory extends ActionQueue<TMemberEvents> {
                         await i.editReply({ content: 'Done!', components: [] });
                     }
                 } catch (e) {
+                    logger.error(e);
                     await i.followUp({ content: 'Ups something went wrong!', ephemeral: true });
                 }
             }
