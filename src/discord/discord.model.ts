@@ -399,55 +399,61 @@ export class Discord {
         reactionData: typeof this._reactions[number],
         channelId?: string
     ): Promise<void> {
-        const channdelIdent = reactionData.reaction.ident + '_CH_ID';
-        const messageIdent = reactionData.reaction.ident + '_MSG_ID';
-        const getChannelId = async (channelId: string | undefined): Promise<string | undefined> => {
-            if (channelId) {
-                return SetConfig(channdelIdent, channelId);
-            } else {
-                return GetConfig(channdelIdent);
-            }
-        };
-        reactionData.channelId = await getChannelId(channelId);
-        reactionData.messageId = await GetConfig(messageIdent);
-        if (reactionData.channelId) {
-            const ch = <TextChannel>this._bot.channels.cache.get(reactionData.channelId);
-            const createMsg = async () => {
-                const text =
-                    reactionData.reaction.text instanceof Function
-                        ? reactionData.reaction.text(this)
-                        : reactionData.reaction.text;
-                const newMsg = await ch.send(
-                    typeof text === 'string'
-                        ? text
-                        : {
-                              body: null,
-                              embeds: [text]
-                          }
-                );
-                await SetConfig(messageIdent, newMsg.id);
-                reactionData.messageId = newMsg.id;
-                await newMsg.fetch(true);
+        try {
+            const channdelIdent = reactionData.reaction.ident + '_CH_ID';
+            const messageIdent = reactionData.reaction.ident + '_MSG_ID';
+            const getChannelId = async (
+                channelId: string | undefined
+            ): Promise<string | undefined> => {
+                if (channelId) {
+                    return SetConfig(channdelIdent, channelId);
+                } else {
+                    return GetConfig(channdelIdent);
+                }
             };
-            if (reactionData.messageId) {
-                await ch.messages.fetch();
-                const msg = ch.messages.cache.get(reactionData.messageId);
-                if (!msg) await createMsg();
-                else {
+            reactionData.channelId = await getChannelId(channelId);
+            reactionData.messageId = await GetConfig(messageIdent);
+            if (reactionData.channelId) {
+                const ch = <TextChannel>this._bot.channels.cache.get(reactionData.channelId);
+                const createMsg = async () => {
                     const text =
                         reactionData.reaction.text instanceof Function
                             ? reactionData.reaction.text(this)
                             : reactionData.reaction.text;
-                    await msg.edit(
+                    const newMsg = await ch.send(
                         typeof text === 'string'
                             ? text
                             : {
-                                  content: null,
+                                  body: null,
                                   embeds: [text]
                               }
                     );
-                }
-            } else await createMsg();
+                    await SetConfig(messageIdent, newMsg.id);
+                    reactionData.messageId = newMsg.id;
+                    await newMsg.fetch(true);
+                };
+                if (reactionData.messageId) {
+                    await ch.messages.fetch();
+                    const msg = ch.messages.cache.get(reactionData.messageId);
+                    if (!msg) await createMsg();
+                    else {
+                        const text =
+                            reactionData.reaction.text instanceof Function
+                                ? reactionData.reaction.text(this)
+                                : reactionData.reaction.text;
+                        await msg.edit(
+                            typeof text === 'string'
+                                ? text
+                                : {
+                                      content: null,
+                                      embeds: [text]
+                                  }
+                        );
+                    }
+                } else await createMsg();
+            }
+        } catch (e) {
+            logger.error(e);
         }
     }
 
