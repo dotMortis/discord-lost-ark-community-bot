@@ -1,0 +1,1 @@
+INSERT INTO `class` VALUES (UUID(), "Mage", "Summoner", "la_summoner", "DD");
